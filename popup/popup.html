@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DiffPixel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────── -->
+<header class="header">
+  <div class="logo">
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+      <rect x="1" y="1" width="9" height="9" rx="1" stroke="#00d4ff" stroke-width="1.5"/>
+      <rect x="12" y="1" width="9" height="9" rx="1" stroke="#00d4ff" stroke-width="1.5" opacity=".4"/>
+      <rect x="1" y="12" width="9" height="9" rx="1" stroke="#00d4ff" stroke-width="1.5" opacity=".4"/>
+      <rect x="12" y="12" width="9" height="9" rx="1" stroke="#00d4ff" stroke-width="1.5"/>
+      <line x1="11" y1="5.5" x2="11" y2="16.5" stroke="#00d4ff" stroke-width="1" opacity=".3"/>
+      <line x1="5.5" y1="11" x2="16.5" y2="11" stroke="#00d4ff" stroke-width="1" opacity=".3"/>
+    </svg>
+    <span class="logo-text">DiffPixel</span>
+  </div>
+  <div class="header-right">
+    <button class="theme-btn" id="themeBtn" aria-label="Toggle theme">
+      <svg id="themeIcon" width="15" height="15" viewBox="0 0 15 15" fill="none">
+        <circle cx="7.5" cy="7.5" r="3" stroke="currentColor" stroke-width="1.4"/>
+        <line x1="7.5" y1="1" x2="7.5" y2="2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="7.5" y1="12.5" x2="7.5" y2="14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="1" y1="7.5" x2="2.5" y2="7.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="12.5" y1="7.5" x2="14" y2="7.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="3.2" y1="3.2" x2="4.2" y2="4.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="10.8" y1="10.8" x2="11.8" y2="11.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="11.8" y1="3.2" x2="10.8" y2="4.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="4.2" y1="10.8" x2="3.2" y2="11.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <label class="toggle" id="enableLabel">
+      <input type="checkbox" id="enableToggle" />
+      <span class="toggle-track"><span class="toggle-thumb"></span></span>
+    </label>
+  </div>
+</header>
+
+<!-- ── Status bar ─────────────────────────── -->
+<div class="statusbar" id="statusbar">
+  <span class="status-dot" id="statusDot"></span>
+  <span id="statusText" data-i18n="statusConnecting"></span>
+</div>
+
+<!-- ── Layers section ────────────────────── -->
+<section class="section">
+  <div class="section-head">
+    <span class="section-label" data-i18n="sectionLayers"></span>
+    <div class="head-right">
+      <div class="persist-row" id="persistRow">
+        <span class="persist-label" id="persistLabel" data-i18n="savedLabel"></span>
+        <button class="persist-clear" id="clearSavedBtn" data-i18n="clearSavedBtn" data-i18n-title="clearSavedTitle"></button>
+      </div>
+      <label class="btn-icon" id="addLayerBtn" data-i18n-title="addLayerTitle">
+        <svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true">
+          <line x1="6.5" y1="1" x2="6.5" y2="12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <line x1="1" y1="6.5" x2="12" y2="6.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <input type="file" id="fileInput" accept="image/*" multiple />
+      </label>
+    </div>
+  </div>
+
+  <div class="layer-list" id="layerList">
+    <div class="empty-state" id="emptyState">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" opacity=".3" aria-hidden="true">
+        <rect x="2" y="2" width="13" height="13" rx="1.5" stroke="#00d4ff" stroke-width="1.5"/>
+        <rect x="17" y="2" width="13" height="13" rx="1.5" stroke="#00d4ff" stroke-width="1.5" opacity=".5"/>
+        <rect x="2" y="17" width="13" height="13" rx="1.5" stroke="#00d4ff" stroke-width="1.5" opacity=".5"/>
+        <rect x="17" y="17" width="13" height="13" rx="1.5" stroke="#00d4ff" stroke-width="1.5"/>
+      </svg>
+      <p data-i18n="emptyState"></p>
+    </div>
+  </div>
+</section>
+
+<!-- ── Controls section ──────────────────── -->
+<section class="section" id="controlsSection">
+  <div class="section-head">
+    <span class="section-label" data-i18n="sectionControls"></span>
+    <input type="text" id="layerNameInput" class="layer-name-input"
+           maxlength="32" data-i18n-placeholder="layerNamePlaceholder" />
+  </div>
+
+  <!-- Opacity -->
+  <div class="control-row">
+    <span class="ctrl-label" data-i18n="labelOpacity"></span>
+    <div class="slider-group">
+      <input type="range" id="opacitySlider" class="slider" min="0" max="100" step="1" value="50" />
+    </div>
+    <div class="num-input-wrap">
+      <input type="number" id="opacityInput" class="num-input" min="0" max="100" step="1" value="50" />
+      <span class="unit">%</span>
+    </div>
+  </div>
+
+  <!-- X -->
+  <div class="control-row">
+    <span class="ctrl-label" data-i18n="labelX"></span>
+    <button class="step-btn" data-field="x" data-dir="-1" aria-label="decrease X">◀</button>
+    <div class="num-input-wrap flex1">
+      <input type="number" id="xInput" class="num-input w-full" value="0" step="1" />
+      <span class="unit">px</span>
+    </div>
+    <button class="step-btn" data-field="x" data-dir="1" aria-label="increase X">▶</button>
+  </div>
+
+  <!-- Y -->
+  <div class="control-row">
+    <span class="ctrl-label" data-i18n="labelY"></span>
+    <button class="step-btn" data-field="y" data-dir="-1" aria-label="decrease Y">◀</button>
+    <div class="num-input-wrap flex1">
+      <input type="number" id="yInput" class="num-input w-full" value="0" step="1" />
+      <span class="unit">px</span>
+    </div>
+    <button class="step-btn" data-field="y" data-dir="1" aria-label="increase Y">▶</button>
+  </div>
+
+  <!-- Scale -->
+  <div class="control-row">
+    <span class="ctrl-label" data-i18n="labelScale"></span>
+    <button class="step-btn" data-field="scale" data-dir="-1" aria-label="decrease scale">◀</button>
+    <div class="num-input-wrap flex1">
+      <input type="number" id="scaleInput" class="num-input w-full" value="1.00" step="0.01" min="0.05" max="20" />
+      <span class="unit">×</span>
+    </div>
+    <button class="step-btn" data-field="scale" data-dir="1" aria-label="increase scale">▶</button>
+  </div>
+
+  <!-- Quick actions -->
+  <div class="control-row qa-row">
+    <button class="qa-btn" id="resetBtn" data-i18n="btnReset"></button>
+    <button class="qa-btn" id="centerBtn" data-i18n="btnCenter"></button>
+    <button class="qa-btn" id="fitWidthBtn" data-i18n="btnFitW"></button>
+  </div>
+
+  <!-- Blend mode -->
+  <div class="control-row">
+    <span class="ctrl-label" data-i18n="labelBlend"></span>
+    <div class="select-wrap flex1">
+      <select id="blendSelect" class="blend-select">
+        <option value="normal"     data-i18n="blendNormal"></option>
+        <option value="difference" data-i18n="blendDifference"></option>
+        <option value="multiply"   data-i18n="blendMultiply"></option>
+        <option value="screen"     data-i18n="blendScreen"></option>
+        <option value="overlay"    data-i18n="blendOverlay"></option>
+        <option value="hard-light" data-i18n="blendHardLight"></option>
+        <option value="exclusion"  data-i18n="blendExclusion"></option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Flags -->
+  <div class="control-row flag-row">
+    <button class="flag-btn" id="invertBtn">
+      <svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true">
+        <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.4"/>
+        <path d="M6.5 1v11" stroke="currentColor" stroke-width="1.4"/>
+        <path d="M1 6.5h5.5" fill="currentColor"/>
+      </svg>
+      <span data-i18n="btnInvert"></span>
+    </button>
+    <button class="flag-btn" id="lockBtn">
+      <svg width="12" height="13" viewBox="0 0 12 13" aria-hidden="true">
+        <rect x="1" y="5.5" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+        <path d="M3 5.5V3.5a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.4" fill="none"/>
+      </svg>
+      <span data-i18n="btnLock"></span>
+    </button>
+    <button class="flag-btn flag-danger" id="removeLayerBtn">
+      <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true">
+        <line x1="1.5" y1="1.5" x2="9.5" y2="9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        <line x1="9.5" y1="1.5" x2="1.5" y2="9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      <span data-i18n="btnRemove"></span>
+    </button>
+  </div>
+</section>
+
+<!-- ── Tools section ─────────────────────── -->
+<section class="section tools-section">
+  <div class="section-head">
+    <span class="section-label" data-i18n="sectionTools"></span>
+  </div>
+  <div class="tools-row">
+    <button class="tool-btn" id="gridBtn">
+      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+        <line x1="0" y1="4.67" x2="14" y2="4.67" stroke="currentColor" stroke-width="1.2" opacity=".8"/>
+        <line x1="0" y1="9.33" x2="14" y2="9.33" stroke="currentColor" stroke-width="1.2" opacity=".8"/>
+        <line x1="4.67" y1="0" x2="4.67" y2="14" stroke="currentColor" stroke-width="1.2" opacity=".8"/>
+        <line x1="9.33" y1="0" x2="9.33" y2="14" stroke="currentColor" stroke-width="1.2" opacity=".8"/>
+      </svg>
+      <span data-i18n="btnGrid"></span>
+    </button>
+    <div class="grid-size-wrap" id="gridSizeWrap">
+      <input type="number" id="gridSizeInput" class="num-input" min="2" max="128" step="1" value="8" data-i18n-title="gridSizeLabel" />
+      <span class="unit">px</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── Keyboard hints ────────────────────── -->
+<footer class="footer">
+  <div class="hint">
+    <kbd>↑↓←→</kbd>
+    <span data-i18n="hintMove1px"></span>
+  </div>
+  <div class="hint">
+    <kbd>⇧</kbd><kbd>↑↓←→</kbd>
+    <span data-i18n="hintMove10px"></span>
+  </div>
+  <div class="hint">
+    <kbd data-i18n="hintDrag"></kbd>
+  </div>
+</footer>
+
+<!-- ── Drop zone overlay ─────────────────── -->
+<div class="drop-zone" id="dropZone">
+  <div class="drop-inner">
+    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+      <path d="M18 6v16M11 14l7-9 7 9" stroke="#00d4ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M6 28h24" stroke="#00d4ff" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <span data-i18n="dropHint"></span>
+  </div>
+</div>
+
+<script src="popup.js"></script>
+</body>
+</html>

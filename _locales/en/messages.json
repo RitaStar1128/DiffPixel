@@ -1,0 +1,59 @@
+{
+  "appName":          { "message": "DiffPixel" },
+  "appDesc":          { "message": "Pixel-perfect design overlay. Free forever. Unlimited layers, blend modes, drag & drop, per-domain state." },
+
+  "statusConnecting": { "message": "Connecting…" },
+  "statusConnected":  { "message": "Connected" },
+  "statusCantRun":    { "message": "Cannot run on this page" },
+  "statusFileNote":   { "message": "Enable 'Allow access to file URLs' in extension settings for local files" },
+
+  "sectionLayers":    { "message": "LAYERS" },
+  "sectionControls":  { "message": "CONTROLS" },
+  "sectionTools":     { "message": "TOOLS" },
+
+  "addLayerTitle":    { "message": "Add layer — click or drop image" },
+  "emptyState":       { "message": "Drop an image or click + to start" },
+
+  "labelOpacity":     { "message": "Opacity" },
+  "labelX":           { "message": "X" },
+  "labelY":           { "message": "Y" },
+  "labelScale":       { "message": "Scale" },
+  "labelBlend":       { "message": "Blend" },
+
+  "blendNormal":      { "message": "Normal" },
+  "blendDifference":  { "message": "Difference" },
+  "blendMultiply":    { "message": "Multiply" },
+  "blendScreen":      { "message": "Screen" },
+  "blendOverlay":     { "message": "Overlay" },
+  "blendHardLight":   { "message": "Hard Light" },
+  "blendExclusion":   { "message": "Exclusion" },
+
+  "btnInvert":        { "message": "Invert" },
+  "btnLock":          { "message": "Lock" },
+  "btnRemove":        { "message": "Remove" },
+  "btnReset":         { "message": "Reset" },
+  "btnCenter":        { "message": "Center" },
+  "btnFitW":          { "message": "Fit W" },
+  "btnGrid":          { "message": "Grid" },
+
+  "gridSizeLabel":    { "message": "Grid size" },
+
+  "savedLabel":       { "message": "Settings auto-saved" },
+  "clearSavedBtn":    { "message": "Clear" },
+  "clearSavedTitle":  { "message": "Clear saved settings for this domain" },
+  "noSaved":          { "message": "No saved settings" },
+
+  "hintMove1px":      { "message": "move 1px" },
+  "hintMove10px":     { "message": "move 10px" },
+  "hintDrag":         { "message": "drag on overlay" },
+
+  "visShow":          { "message": "Show layer" },
+  "visHide":          { "message": "Hide layer" },
+  "dropHint":         { "message": "Drop image to add layer" },
+
+  "layerDefault":     { "message": "Layer" },
+  "layerNamePlaceholder": { "message": "Layer name" },
+
+  "toggleTheme":      { "message": "Toggle light / dark theme" },
+  "toggleOverlay":    { "message": "Enable / disable overlay" }
+}

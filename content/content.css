@@ -1,24 +1,22 @@
 /* DiffPixel — injected styles */
 
-#dp-root {
-  position: fixed !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
+html > #dp-root {
+  display: contents !important;
   pointer-events: none !important;
-  z-index: 2147483646 !important;
+  z-index: auto !important;
   margin: 0 !important;
   padding: 0 !important;
   background: transparent !important;
   border: none !important;
   overflow: visible !important;
-  contain: layout style !important;
+  isolation: auto !important;
 }
 
-.dp-layer {
-  position: absolute !important;
+html > #dp-root .dp-layer {
+  position: fixed !important;
   top: 0 !important;
   left: 0 !important;
+  z-index: 2147483645 !important;
   transform-origin: top left !important;
   pointer-events: auto !important;
   user-select: none !important;
@@ -27,30 +25,33 @@
   padding: 0 !important;
   border: none !important;
   line-height: 0 !important;
-  will-change: transform, opacity !important;
+  will-change: transform, filter !important;
+  isolation: auto !important;
 }
 
-.dp-layer.dp-dragging {
+html > #dp-root .dp-layer.dp-dragging {
   cursor: grabbing !important;
 }
 
-.dp-layer img {
+html > #dp-root .dp-layer img {
   display: block !important;
   max-width: none !important;
   pointer-events: none !important;
   margin: 0 !important;
   padding: 0 !important;
   border: none !important;
+  mix-blend-mode: normal !important;
 }
 
-#dp-grid {
+html > #dp-grid {
   position: fixed !important;
   inset: 0 !important;
   width: 100% !important;
   height: 100% !important;
   pointer-events: none !important;
-  z-index: 2147483645 !important;
+  z-index: 2147483646 !important;
   margin: 0 !important;
   padding: 0 !important;
-  display: none !important;
+  display: none;
+  background-repeat: repeat !important;
 }

@@ -2,7 +2,75 @@
 'use strict';
 
 /* ── i18n ──────────────────────────────────── */
-const t = key => chrome.i18n.getMessage(key) || key;
+const I18N = {
+  en: {
+    statusConnecting: 'Connecting...', statusConnected: 'Connected', statusCantRun: 'Cannot run on this page',
+    sectionLayers: 'LAYERS', sectionControls: 'CONTROLS', sectionTools: 'TOOLS',
+    addLayerTitle: 'Add layer - click or drop image', emptyState: 'Drop an image or click + to start',
+    labelOpacity: 'Opacity', labelX: 'X', labelY: 'Y', labelScale: 'Scale', labelBlend: 'Blend',
+    blendNormal: 'Normal', blendDifference: 'Difference', blendMultiply: 'Multiply', blendScreen: 'Screen',
+    blendOverlay: 'Overlay', blendHardLight: 'Hard Light', blendExclusion: 'Exclusion',
+    btnInvert: 'Invert', btnLock: 'Lock', btnRemove: 'Remove', btnReset: 'Reset', btnCenter: 'Center',
+    btnFitW: 'Fit W', btnGrid: 'Grid', gridSizeLabel: 'Grid size',
+    savedLabel: 'Settings auto-saved', clearSavedBtn: 'Clear', clearSavedTitle: 'Clear saved settings for this domain',
+    noSaved: 'No saved settings', visShow: 'Show layer', visHide: 'Hide layer', dropHint: 'Drop image to add layer',
+    layerDefault: 'Layer', layerNamePlaceholder: 'Layer name',
+    toggleTheme: 'Toggle light / dark theme', themeLight: 'Switch to light theme', themeDark: 'Switch to dark theme',
+    toggleOverlay: 'Enable / disable overlay', overlayLabel: 'Overlay', languageTitle: 'Language', languageAuto: 'Lang: Auto',
+    languageEnglish: 'Lang: EN', languageJapanese: 'Lang: JA',
+  },
+};
+const LANG_VALUES = new Set(['auto', 'en', 'ja']);
+let langMode = 'auto';
+let activeLang = 'en';
+
+function normalizeLang(value) { return LANG_VALUES.has(value) ? value : 'auto'; }
+function browserLang() {
+  const lang = chrome.i18n.getUILanguage?.() || navigator.language || 'en';
+  return lang.toLowerCase().startsWith('ja') ? 'ja' : 'en';
+}
+function updateActiveLang() {
+  activeLang = langMode === 'auto' ? browserLang() : langMode;
+  document.documentElement.lang = activeLang;
+}
+const t = key => {
+  const msg = I18N[activeLang]?.[key];
+  if (msg) return msg;
+  try { return chrome.i18n.getMessage(key) || key; } catch { return key; }
+};
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const SCALE_MIN = 0.05;
+const SCALE_MAX = 20;
+const SCALE_DECIMALS = 4;
+const SCALE_DISPLAY_DECIMALS = 2;
+const SCALE_PRECISION = 10 ** SCALE_DECIMALS;
+const SCALE_STEP = 0.001;
+const SCALE_STEP_COARSE = 0.01;
+const SCALE_STEP_FINE = 0.0001;
+const SCALE_KEY_STEP = 0.1;
+
+function normalizeScale(value, fallback = 1) {
+  const n = Number(value);
+  const base = Number.isFinite(n) ? n : fallback;
+  const clamped = Math.min(SCALE_MAX, Math.max(SCALE_MIN, base));
+  return Math.round(clamped * SCALE_PRECISION) / SCALE_PRECISION;
+}
+
+function formatScale(value) {
+  const normalized = normalizeScale(value);
+  const fixed = normalized.toFixed(SCALE_DECIMALS);
+  const trimmed = fixed.replace(/0+$/, '').replace(/\.$/, '');
+  const decimals = trimmed.includes('.') ? trimmed.split('.')[1].length : 0;
+  return decimals <= SCALE_DISPLAY_DECIMALS
+    ? normalized.toFixed(SCALE_DISPLAY_DECIMALS)
+    : trimmed;
+}
+
+function scaleStepFromEvent(e) {
+  if (e?.altKey) return SCALE_STEP_FINE;
+  if (e?.shiftKey) return SCALE_STEP_COARSE;
+  return SCALE_STEP;
+}
 
 function applyI18n() {
   document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -28,16 +96,35 @@ function applyI18n() {
 /* ── Theme ──────────────────────────────────── */
 let currentTheme = 'dark';
 
+function normalizeTheme(theme) {
+  if (theme === true) return 'light';
+  return String(theme).toLowerCase() === 'light' ? 'light' : 'dark';
+}
+
+function preferredTheme() {
+  return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+
+function updateThemeButton() {
+  if (!themeBtn) return;
+  const label = t(currentTheme === 'light' ? 'themeDark' : 'themeLight');
+  themeBtn.setAttribute('aria-label', label);
+  themeBtn.setAttribute('aria-pressed', String(currentTheme === 'light'));
+  themeBtn.title = label;
+}
+
 function applyTheme(theme) {
-  currentTheme = theme;
-  document.body.classList.toggle('dp-light', theme === 'light');
+  currentTheme = normalizeTheme(theme);
+  document.documentElement.classList.toggle('dp-light', currentTheme === 'light');
+  document.body.classList.toggle('dp-light', currentTheme === 'light');
+  document.documentElement.dataset.theme = currentTheme;
+  document.body.dataset.theme = currentTheme;
+  updateThemeButton();
 }
 
 async function loadTheme() {
   const res = await chrome.storage.local.get('dp_theme');
-  applyTheme(res.dp_theme ?? (
-    window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
-  ));
+  applyTheme(res.dp_theme ?? preferredTheme());
 }
 
 async function toggleTheme() {
@@ -46,9 +133,27 @@ async function toggleTheme() {
   await chrome.storage.local.set({ dp_theme: next });
 }
 
+async function loadLanguage() {
+  const res = await chrome.storage.local.get('dp_lang');
+  langMode = normalizeLang(res.dp_lang);
+  updateActiveLang();
+  if (langSelect) langSelect.value = langMode;
+}
+
+async function setLanguage(value) {
+  langMode = normalizeLang(value);
+  updateActiveLang();
+  if (langSelect) langSelect.value = langMode;
+  await chrome.storage.local.set({ dp_lang: langMode });
+  applyI18n();
+  updateThemeButton();
+  renderAll();
+}
+
 /* ── State ──────────────────────────────────── */
 let tabId = null;
 let hostname = '';
+let storageScope = '';
 let connected = false;
 
 let appState = {
@@ -89,6 +194,7 @@ const fitWidthBtn     = $('fitWidthBtn');
 const gridBtn         = $('gridBtn');
 const gridSizeWrap    = $('gridSizeWrap');
 const gridSizeInput   = $('gridSizeInput');
+const langSelect      = $('langSelect');
 const themeBtn        = $('themeBtn');
 
 /* ── Messaging ──────────────────────────────── */
@@ -102,7 +208,8 @@ function send(msg) {
 }
 
 /* ── Persistence ────────────────────────────── */
-function storageKey() { return `dp_${hostname}`; }
+function storageKey() { return `dp_${storageScope || hostname}`; }
+function contentStateKey() { return `${storageKey()}_state`; }
 
 /**
  * Save per-domain settings to chrome.storage.local.
@@ -150,6 +257,7 @@ function setStatus(type, key) {
 
 /* ── Init ───────────────────────────────────── */
 async function init() {
+  await loadLanguage();
   applyI18n();
   await loadTheme();   // Apply saved theme before rendering
 
@@ -157,7 +265,13 @@ async function init() {
   if (!tab) { setStatus('err', 'statusCantRun'); return; }
   tabId = tab.id;
 
-  try { hostname = new URL(tab.url).hostname; } catch {}
+  try {
+    const url = new URL(tab.url);
+    hostname = url.hostname;
+    storageScope = url.hostname || url.protocol.replace(':', '');
+  } catch {
+    storageScope = 'page';
+  }
 
   setStatus('', 'statusConnecting');
 
@@ -238,7 +352,7 @@ function renderLayerList() {
 
     const metaEl = document.createElement('div');
     metaEl.className = 'layer-meta';
-    metaEl.textContent = `${Math.round(layer.opacity * 100)}% · ${layer.x}px ${layer.y}px · ×${Number(layer.scale).toFixed(2)}`;
+    metaEl.textContent = `${Math.round(layer.opacity * 100)}% | ${layer.x}px ${layer.y}px | x${formatScale(layer.scale)}`;
 
     info.appendChild(nameEl);
     info.appendChild(metaEl);
@@ -270,7 +384,7 @@ function renderControls() {
   opacityInput.value   = Math.round(layer.opacity * 100);
   xInput.value         = layer.x;
   yInput.value         = layer.y;
-  scaleInput.value     = Number(layer.scale).toFixed(2);
+  if (scaleInput !== document.activeElement) scaleInput.value = formatScale(layer.scale);
   blendSelect.value    = layer.blendMode;
   invertBtn.classList.toggle('active', !!layer.invert);
   lockBtn.classList.toggle('active',   !!layer.locked);
@@ -326,6 +440,7 @@ async function updateActiveLayer(data) {
 }
 
 async function addImageLayer(file) {
+  if (!file.type.startsWith('image/') || file.size > MAX_IMAGE_BYTES) return;
   const reader = new FileReader();
   reader.onload = async e => {
     const imageData = e.target.result;
@@ -383,7 +498,7 @@ async function fitToViewportWidth() {
   if (!layer) return;
   const info = await send({ type: 'GET_LAYER_INFO', layerId: layer.id });
   if (!info || !info.imageNaturalWidth) return;
-  const scale = Math.round((info.viewportWidth / info.imageNaturalWidth) * 100) / 100;
+  const scale = normalizeScale(info.viewportWidth / info.imageNaturalWidth, layer.scale);
   await updateActiveLayer({ scale, x: 0 });
   renderControls();
 }
@@ -438,13 +553,33 @@ yInput.addEventListener('input', () => {
 scaleInput.addEventListener('input', () => {
   clearTimeout(scaleInput._t);
   scaleInput._t = setTimeout(() => {
-    const v = Math.max(0.05, parseFloat(scaleInput.value) || 1);
+    const v = normalizeScale(scaleInput.value, activeLayer()?.scale ?? 1);
     updateActiveLayer({ scale: v });
   }, 180);
 });
 
+scaleInput.addEventListener('keydown', e => {
+  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+  const layer = activeLayer();
+  if (!layer) return;
+  e.preventDefault();
+  const dir = e.key === 'ArrowUp' ? 1 : -1;
+  const typed = Number(scaleInput.value);
+  const base = Number.isFinite(typed) ? typed : layer.scale;
+  layer.scale = normalizeScale(base + dir * SCALE_KEY_STEP, layer.scale);
+  scaleInput.value = formatScale(layer.scale);
+  updateActiveLayer({ scale: layer.scale });
+  renderLayerList();
+});
+
+scaleInput.addEventListener('blur', () => {
+  const layer = activeLayer();
+  if (!layer) return;
+  scaleInput.value = formatScale(layer.scale);
+});
+
 document.querySelectorAll('.step-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
+  btn.addEventListener('click', e => {
     const field = btn.dataset.field;
     const dir   = parseInt(btn.dataset.dir, 10);
     const layer = activeLayer();
@@ -459,8 +594,8 @@ document.querySelectorAll('.step-btn').forEach(btn => {
       yInput.value = layer.y;
       updateActiveLayer({ y: layer.y });
     } else if (field === 'scale') {
-      layer.scale = Math.max(0.05, Math.round((layer.scale + dir * 0.05) * 100) / 100);
-      scaleInput.value = layer.scale.toFixed(2);
+      layer.scale = normalizeScale(layer.scale + dir * scaleStepFromEvent(e), layer.scale);
+      scaleInput.value = formatScale(layer.scale);
       updateActiveLayer({ scale: layer.scale });
     }
     renderLayerList();
@@ -501,6 +636,7 @@ clearSavedBtn.addEventListener('click', clearSettings);
 
 /* Theme button */
 themeBtn.addEventListener('click', toggleTheme);
+langSelect?.addEventListener('change', () => setLanguage(langSelect.value));
 
 /* File input (multiple) */
 fileInput.addEventListener('change', () => {
@@ -548,8 +684,8 @@ function listenRuntime() {
     if (area !== 'local') return;
 
     /* Overlay state changed on another tab — refresh UI */
-    if (changes['dp_state']) {
-      const s = changes['dp_state'].newValue;
+    if (changes[contentStateKey()]) {
+      const s = changes[contentStateKey()].newValue;
       if (!s) return;
       appState.enabled        = s.enabled ?? appState.enabled;
       appState.activeLayerId  = s.activeLayerId ?? appState.activeLayerId;
@@ -570,6 +706,15 @@ function listenRuntime() {
     /* Theme changed from another tab or panel */
     if (changes['dp_theme']) {
       applyTheme(changes['dp_theme'].newValue);
+    }
+
+    if (changes['dp_lang']) {
+      langMode = normalizeLang(changes['dp_lang'].newValue);
+      updateActiveLang();
+      if (langSelect) langSelect.value = langMode;
+      applyI18n();
+      updateThemeButton();
+      renderAll();
     }
   });
 }

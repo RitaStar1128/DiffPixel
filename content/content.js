@@ -7,13 +7,101 @@
 (() => {
   'use strict';
 
-  const t = key => { try { return chrome.i18n.getMessage(key) || key; } catch { return key; } };
+  const I18N = {
+    en: {
+      sectionLayers: 'LAYERS', sectionControls: 'CONTROLS', addLayerTitle: 'Add layer - click or drop image',
+      emptyState: 'Drop an image or click + to start', labelOpacity: 'Opacity', labelX: 'X', labelY: 'Y',
+      labelScale: 'Scale', labelBlend: 'Blend', blendNormal: 'Normal', blendDifference: 'Difference',
+      blendMultiply: 'Multiply', blendScreen: 'Screen', blendOverlay: 'Overlay', blendHardLight: 'Hard Light',
+      blendExclusion: 'Exclusion', btnInvert: 'Invert', btnLock: 'Lock', btnRemove: 'Remove',
+      btnReset: 'Reset', btnCenter: 'Center', btnFitW: 'Fit W', btnGrid: 'Grid',
+      visShow: 'Show layer', visHide: 'Hide layer', dropHint: 'Drop image to add layer',
+      layerDefault: 'Layer', layerNamePlaceholder: 'Layer name', toggleTheme: 'Toggle light / dark theme',
+      themeLight: 'Switch to light theme', themeDark: 'Switch to dark theme',
+      toggleOverlay: 'Enable / disable overlay', overlayLabel: 'Overlay', languageTitle: 'Language', languageAuto: 'Lang: Auto',
+      languageEnglish: 'Lang: EN', languageJapanese: 'Lang: JA',
+    },
+  };
+  const LANG_VALUES = new Set(['auto', 'en', 'ja']);
+  let langMode = 'auto';
+  let activeLang = 'en';
+
+  function normalizeLang(value) { return LANG_VALUES.has(value) ? value : 'auto'; }
+  function browserLang() {
+    const lang = chrome.i18n.getUILanguage?.() || navigator.language || 'en';
+    return lang.toLowerCase().startsWith('ja') ? 'ja' : 'en';
+  }
+  function updateActiveLang() {
+    activeLang = langMode === 'auto' ? browserLang() : langMode;
+  }
+  const t = key => {
+    const msg = I18N[activeLang]?.[key];
+    if (msg) return msg;
+    try { return chrome.i18n.getMessage(key) || key; } catch { return key; }
+  };
+  const storagePrefix = (() => {
+    try {
+      const u = new URL(location.href);
+      return `dp_${u.hostname || u.protocol.replace(':', '')}`;
+    } catch {
+      return 'dp_page';
+    }
+  })();
+  const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+  const SCALE_MIN = 0.05;
+  const SCALE_MAX = 20;
+  const SCALE_DECIMALS = 4;
+  const SCALE_DISPLAY_DECIMALS = 2;
+  const SCALE_PRECISION = 10 ** SCALE_DECIMALS;
+  const SCALE_STEP = 0.001;
+  const SCALE_STEP_COARSE = 0.01;
+  const SCALE_STEP_FINE = 0.0001;
+  const SCALE_KEY_STEP = 0.1;
+  const BASE_STYLE_ID = 'dp-base-style';
+  const BASE_CSS = `
+    html > #dp-root {
+      display: contents !important;
+      z-index: auto !important;
+      pointer-events: none !important;
+      overflow: visible !important;
+      isolation: auto !important;
+    }
+    html > #dp-root .dp-layer {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: max-content !important;
+      height: max-content !important;
+      z-index: 2147483645 !important;
+      transform-origin: top left !important;
+      will-change: transform, filter !important;
+      pointer-events: auto;
+      isolation: auto !important;
+    }
+    html > #dp-root .dp-layer img {
+      display: block !important;
+      max-width: none !important;
+      max-height: none !important;
+      mix-blend-mode: normal !important;
+      user-select: none !important;
+      -webkit-user-drag: none !important;
+    }
+    html > #dp-grid {
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 2147483646 !important;
+      display: none;
+      pointer-events: none !important;
+      background-repeat: repeat !important;
+    }
+  `;
 
   /* ── Storage keys ────────────────────────── */
   const K = {
-    STATE:     'dp_state',
-    IMAGES:    'dp_images',
+    STATE:     `${storagePrefix}_state`,
+    IMAGES:    `${storagePrefix}_images`,
     THEME:     'dp_theme',
+    LANG:      'dp_lang',
     PANEL_POS: 'dp_panel_pos',
   };
 
@@ -28,6 +116,29 @@
     return 'dp-' + Array.from(arr, b => b.toString(36).padStart(2, '0')).join('').slice(0, 9);
   }
 
+  function normalizeScale(value, fallback = 1) {
+    const n = Number(value);
+    const base = Number.isFinite(n) ? n : fallback;
+    const clamped = Math.min(SCALE_MAX, Math.max(SCALE_MIN, base));
+    return Math.round(clamped * SCALE_PRECISION) / SCALE_PRECISION;
+  }
+
+  function formatScale(value) {
+    const normalized = normalizeScale(value);
+    const fixed = normalized.toFixed(SCALE_DECIMALS);
+    const trimmed = fixed.replace(/0+$/, '').replace(/\.$/, '');
+    const decimals = trimmed.includes('.') ? trimmed.split('.')[1].length : 0;
+    return decimals <= SCALE_DISPLAY_DECIMALS
+      ? normalized.toFixed(SCALE_DISPLAY_DECIMALS)
+      : trimmed;
+  }
+
+  function scaleStepFromEvent(e) {
+    if (e?.altKey) return SCALE_STEP_FINE;
+    if (e?.shiftKey) return SCALE_STEP_COARSE;
+    return SCALE_STEP;
+  }
+
   function sanitizeMeta(m) {
     return {
       id:        (typeof m.id === 'string' && VALID_ID_RE.test(m.id)) ? m.id : genId(),
@@ -35,7 +146,7 @@
       opacity:   typeof m.opacity === 'number' ? Math.min(1, Math.max(0, m.opacity)) : 0.5,
       x:         typeof m.x === 'number' ? Math.trunc(m.x) : 0,
       y:         typeof m.y === 'number' ? Math.trunc(m.y) : 0,
-      scale:     typeof m.scale === 'number' ? Math.min(20, Math.max(0.05, m.scale)) : 1,
+      scale:     typeof m.scale === 'number' ? normalizeScale(m.scale) : 1,
       blendMode: VALID_BLEND.has(m.blendMode) ? m.blendMode : 'normal',
       visible:   typeof m.visible === 'boolean' ? m.visible : true,
       invert:    typeof m.invert === 'boolean' ? m.invert : false,
@@ -64,6 +175,15 @@
   let gridEl        = null;
   let panel         = null;
 
+  function normalizeTheme(theme) {
+    if (theme === true) return 'light';
+    return String(theme).toLowerCase() === 'light' ? 'light' : 'dark';
+  }
+
+  function preferredTheme() {
+    return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  }
+
   /* ── Layer (manages one overlay element) ─── */
   class Layer {
     constructor(id) {
@@ -91,12 +211,19 @@
 
     applyStyle(meta) {
       if (!this.el || !meta) return;
+      const blendMode = VALID_BLEND.has(meta.blendMode) ? meta.blendMode : 'normal';
       this.el.style.display      = (meta.visible && globalEnabled) ? 'block' : 'none';
-      this.el.style.opacity      = meta.opacity;
+      this.el.style.zIndex       = '2147483645';
+      this.el.style.opacity      = '1';
       this.el.style.transform    = `translate3d(${meta.x}px,${meta.y}px,0) scale(${meta.scale})`;
-      this.el.style.mixBlendMode = meta.blendMode;
+      this.el.style.mixBlendMode = blendMode;
       this.el.style.pointerEvents= meta.locked ? 'none' : 'auto';
-      this.el.style.filter       = meta.invert ? 'invert(1)' : 'none';
+      this.el.style.filter       = 'none';
+      if (this.img) {
+        this.img.style.opacity = String(meta.opacity);
+        this.img.style.setProperty('mix-blend-mode', 'normal', 'important');
+        this.img.style.filter = meta.invert ? 'invert(1)' : 'none';
+      }
     }
 
     bindDrag() {
@@ -150,7 +277,18 @@
   const getActiveMeta = ()  => getMeta(activeLayerId);
 
   /* ── DOM setup ───────────────────────────── */
+  function ensureBaseStyles() {
+    let styleEl = document.getElementById(BASE_STYLE_ID);
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = BASE_STYLE_ID;
+      document.documentElement.appendChild(styleEl);
+    }
+    if (styleEl.textContent !== BASE_CSS) styleEl.textContent = BASE_CSS;
+  }
+
   function ensureDOM() {
+    ensureBaseStyles();
     containerEl = document.getElementById('dp-root') ?? (() => {
       const el = document.createElement('div'); el.id = 'dp-root';
       document.documentElement.appendChild(el); return el;
@@ -191,11 +329,11 @@
     if (!gridEl) return;
     if (gridConfig.enabled) {
       const s = gridConfig.size, c = gridConfig.color;
-      gridEl.style.display = 'block';
+      gridEl.style.setProperty('display', 'block', 'important');
       gridEl.style.backgroundImage =
         `linear-gradient(${c} 1px,transparent 1px),linear-gradient(90deg,${c} 1px,transparent 1px)`;
       gridEl.style.backgroundSize = `${s}px ${s}px`;
-    } else { gridEl.style.display = 'none'; }
+    } else { gridEl.style.setProperty('display', 'none', 'important'); }
   }
 
   /* ── Storage: save ───────────────────────── */
@@ -216,8 +354,10 @@
 
   /* ── Storage: load ───────────────────────── */
   async function loadFromStorage() {
-    const res = await chrome.storage.local.get([K.STATE, K.IMAGES, K.THEME, K.PANEL_POS]);
-    if (res[K.THEME])  currentTheme = res[K.THEME];
+    const res = await chrome.storage.local.get([K.STATE, K.IMAGES, K.THEME, K.LANG, K.PANEL_POS]);
+    langMode = normalizeLang(res[K.LANG]);
+    updateActiveLang();
+    currentTheme = normalizeTheme(res[K.THEME] ?? preferredTheme());
     if (res[K.IMAGES]) Object.entries(res[K.IMAGES]).forEach(([id, d]) => imageData.set(id, d));
     if (res[K.STATE]) {
       const s = res[K.STATE];
@@ -240,6 +380,9 @@
   /* ─────────────────────────────────────────────
      PANEL CSS — embedded in shadow root
   ──────────────────────────────────────────────── */
+  const PANEL_WIDTH = 340;
+  const PANEL_EDGE_GAP = 18;
+
   const PANEL_CSS = `
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :host { all: initial; font-size: 12px; }
@@ -253,8 +396,9 @@
       --r: 8px;
       --sans: -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
       --mono: 'SFMono-Regular',Consolas,'Liberation Mono',monospace;
+      color-scheme: dark;
 
-      position: fixed; width: 272px;
+      position: fixed; width: ${PANEL_WIDTH}px;
       background: var(--bg);
       border: 1px solid var(--brd);
       border-radius: var(--r);
@@ -264,37 +408,62 @@
     }
 
     /* Light theme */
-    .dp-p.dp-light {
+    .dp-p.dp-light,
+    .dp-p[data-theme="light"] {
       --bg:    #f2f3f8; --surf:  #ffffff; --surf2: #ebebf5; --surf3: #dfe0ef;
       --brd:   rgba(0,0,0,0.08); --brd-hi: rgba(0,80,220,0.25);
       --acc:   #0055cc; --acc-d: rgba(0,85,204,0.09);
       --tx:    #1a1d2e; --tx2:   #5a6080; --tx3:   #9499b0;
       --dng:   #d63050; --dng-d: rgba(214,48,80,0.1); --ok: #00966a;
+      color-scheme: light;
       box-shadow: 0 8px 32px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.06);
     }
 
     /* Header */
     .dp-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0 8px 0 12px; height: 38px;
+      padding: 0 9px 0 12px; height: 40px;
       background: var(--surf); border-bottom: 1px solid var(--brd);
       cursor: grab; flex-shrink: 0;
     }
     .dp-header:active { cursor: grabbing; }
-    .dp-logo { display: flex; align-items: center; gap: 8px; pointer-events: none; }
-    .dp-logo-tx { font-size: 13px; font-weight: 600; letter-spacing: -.2px; color: var(--tx); }
-    .dp-hbtns { display: flex; align-items: center; gap: 3px; }
+    .dp-logo {
+      display: flex; align-items: center; gap: 8px;
+      min-width: 0; flex: 1 1 auto; margin-right: 14px;
+      pointer-events: none;
+    }
+    .dp-logo-tx { font-size: 13px; font-weight: 600; letter-spacing: 0; color: var(--tx); }
+    .dp-hbtns { display: flex; align-items: center; gap: 7px; flex: 0 0 auto; }
+    .dp-settings, .dp-overlay-actions {
+      display: flex; align-items: center; gap: 5px;
+    }
+    .dp-settings {
+      padding-right: 7px; margin-right: 0;
+      border-right: 1px solid var(--brd);
+    }
+    .dp-overlay-actions {
+      padding-left: 0; margin-left: 0;
+    }
+
+    .dp-lang {
+      width: 94px; height: 26px; padding: 0 6px;
+      background: var(--surf2); border: 1px solid var(--brd); border-radius: 4px;
+      color: var(--tx2); font-family: var(--sans); font-size: 10.5px;
+      outline: none; cursor: pointer;
+    }
+    .dp-lang:hover, .dp-lang:focus { border-color: var(--brd-hi); color: var(--tx); }
 
     .dp-ibtn {
       display: flex; align-items: center; justify-content: center;
-      width: 24px; height: 24px; background: none; border: none;
+      width: 26px; height: 26px; background: none; border: none;
       border-radius: 4px; color: var(--tx2); cursor: pointer; font-size: 11px;
       transition: background .12s, color .12s;
     }
     .dp-ibtn:hover { background: var(--surf2); color: var(--tx); }
+    .dp-ibtn[aria-pressed="true"] { background: var(--acc-d); color: var(--acc); }
 
     /* Toggle */
-    .dp-tog { display: flex; align-items: center; cursor: pointer; }
+    .dp-tog { display: flex; align-items: center; min-width: 34px; min-height: 26px; cursor: pointer; }
     .dp-tog input { display: none; }
     .dp-track {
       width: 30px; height: 16px; background: var(--surf3);
@@ -327,7 +496,7 @@
     .dp-body::-webkit-scrollbar-thumb { background: var(--surf3); border-radius: 2px; }
 
     /* Sections */
-    .dp-sec { padding: 8px 12px; border-bottom: 1px solid var(--brd); }
+    .dp-sec { padding: 9px 12px; border-bottom: 1px solid var(--brd); }
     .dp-sec:last-child { border-bottom: none; }
     .dp-shead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
     .dp-slabel { font-size: 9px; font-weight: 700; letter-spacing: .1em; color: var(--tx3); text-transform: uppercase; }
@@ -344,14 +513,14 @@
     /* Layer list */
     .dp-ll { display: flex; flex-direction: column; gap: 2px; }
     .dp-li {
-      display: flex; align-items: center; gap: 7px;
-      padding: 4px 6px; border-radius: 5px; border: 1px solid transparent;
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 6px; border-radius: 5px; border: 1px solid transparent;
       cursor: pointer; transition: background .1s, border-color .1s;
     }
     .dp-li:hover  { background: var(--surf2); border-color: var(--brd); }
     .dp-li.active { background: var(--acc-d); border-color: var(--brd-hi); }
 
-    .dp-th { width: 30px; height: 20px; border-radius: 3px; overflow: hidden; background: var(--surf3); border: 1px solid var(--brd); flex-shrink: 0; }
+    .dp-th { width: 34px; height: 22px; border-radius: 3px; overflow: hidden; background: var(--surf3); border: 1px solid var(--brd); flex-shrink: 0; }
     .dp-th img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .dp-linfo { flex: 1; min-width: 0; }
     .dp-lname { font-size: 11px; font-weight: 500; color: var(--tx); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -359,7 +528,7 @@
 
     .dp-visbtn {
       background: none; border: none; cursor: pointer; color: var(--tx2);
-      padding: 2px 3px; border-radius: 3px; display: flex; align-items: center;
+      width: 24px; height: 24px; padding: 0; border-radius: 3px; display: flex; align-items: center; justify-content: center;
       opacity: .6; transition: opacity .12s, color .12s; flex-shrink: 0;
     }
     .dp-visbtn:hover { opacity: 1; color: var(--acc); }
@@ -372,12 +541,12 @@
     .dp-ni { /* name input */
       width: 100%; background: var(--surf2); border: 1px solid var(--brd);
       border-radius: 4px; color: var(--tx); font-family: var(--sans); font-size: 11px;
-      font-weight: 500; padding: 3px 7px; outline: none; transition: border-color .15s;
+      font-weight: 500; min-height: 24px; padding: 3px 7px; outline: none; transition: border-color .15s;
       margin-bottom: 6px;
     }
     .dp-ni:focus { border-color: var(--brd-hi); background: var(--surf3); }
 
-    .dp-row { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
+    .dp-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
     .dp-row:last-child { margin-bottom: 0; }
     .dp-cl { font-size: 10.5px; color: var(--tx2); width: 46px; flex-shrink: 0; }
 
@@ -388,7 +557,7 @@
     .dp-sl::-webkit-slider-thumb:hover { transform: scale(1.2); }
 
     /* Num input */
-    .dp-nw { display: flex; align-items: center; background: var(--surf2); border: 1px solid var(--brd); border-radius: 4px; overflow: hidden; transition: border-color .12s; }
+    .dp-nw { display: flex; align-items: center; min-height: 24px; background: var(--surf2); border: 1px solid var(--brd); border-radius: 4px; overflow: hidden; transition: border-color .12s; }
     .dp-nw:focus-within { border-color: var(--brd-hi); }
     .dp-nw.f1 { flex: 1; min-width: 0; }
     .dp-num { background: transparent; border: none; color: var(--tx); font-family: var(--mono); font-size: 11px; padding: 3px 5px; text-align: right; outline: none; }
@@ -397,31 +566,31 @@
     .dp-unit { font-family: var(--mono); font-size: 9.5px; color: var(--tx3); padding: 0 5px 0 1px; }
 
     /* Step buttons */
-    .dp-sb { background: var(--surf2); border: 1px solid var(--brd); border-radius: 3px; color: var(--tx2); cursor: pointer; padding: 3px 5px; font-size: 8px; flex-shrink: 0; transition: all .1s; line-height: 1; }
+    .dp-sb { display: flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; background: var(--surf2); border: 1px solid var(--brd); border-radius: 3px; color: var(--tx2); cursor: pointer; padding: 0; font-size: 8px; flex-shrink: 0; transition: all .1s; line-height: 1; }
     .dp-sb:hover { background: var(--surf3); color: var(--acc); border-color: var(--brd-hi); }
     .dp-sb:active { transform: scale(.93); }
 
     /* Quick-action */
     .dp-qa { gap: 4px; }
-    .dp-qbtn { flex: 1; background: var(--surf2); border: 1px solid var(--brd); border-radius: 5px; color: var(--tx2); cursor: pointer; font-family: var(--sans); font-size: 10px; font-weight: 500; padding: 3px 4px; text-align: center; transition: all .1s; }
+    .dp-qbtn { flex: 1; min-height: 24px; background: var(--surf2); border: 1px solid var(--brd); border-radius: 5px; color: var(--tx2); cursor: pointer; font-family: var(--sans); font-size: 10px; font-weight: 500; padding: 3px 4px; text-align: center; transition: all .1s; }
     .dp-qbtn:hover { background: var(--acc-d); border-color: var(--brd-hi); color: var(--acc); }
 
     /* Select */
     .dp-selw { position: relative; flex: 1; }
     .dp-selw::after { content: '▾'; position: absolute; right: 7px; top: 50%; transform: translateY(-50%); color: var(--tx3); font-size: 9px; pointer-events: none; }
-    .dp-sel { width: 100%; -webkit-appearance: none; background: var(--surf2); border: 1px solid var(--brd); border-radius: 4px; color: var(--tx); font-family: var(--sans); font-size: 10.5px; padding: 4px 20px 4px 7px; cursor: pointer; outline: none; transition: border-color .12s; }
+    .dp-sel { width: 100%; min-height: 24px; -webkit-appearance: none; background: var(--surf2); border: 1px solid var(--brd); border-radius: 4px; color: var(--tx); font-family: var(--sans); font-size: 10.5px; padding: 4px 20px 4px 7px; cursor: pointer; outline: none; transition: border-color .12s; }
     .dp-sel:focus { border-color: var(--brd-hi); }
 
     /* Flag buttons */
     .dp-frow { gap: 4px; flex-wrap: wrap; }
-    .dp-fbtn { display: flex; align-items: center; gap: 4px; background: var(--surf2); border: 1px solid var(--brd); border-radius: 5px; color: var(--tx2); cursor: pointer; font-family: var(--sans); font-size: 10.5px; padding: 4px 7px; transition: all .12s; white-space: nowrap; }
+    .dp-fbtn { display: flex; align-items: center; gap: 4px; min-height: 24px; background: var(--surf2); border: 1px solid var(--brd); border-radius: 5px; color: var(--tx2); cursor: pointer; font-family: var(--sans); font-size: 10.5px; padding: 4px 7px; transition: all .12s; white-space: nowrap; }
     .dp-fbtn:hover { background: var(--surf3); border-color: var(--brd-hi); color: var(--acc); }
     .dp-fbtn.on  { background: var(--acc-d); border-color: var(--brd-hi); color: var(--acc); }
     .dp-fbtn.dng:hover { background: var(--dng-d); border-color: rgba(255,77,106,.3); color: var(--dng); }
 
     /* Tool buttons */
     .dp-trow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    .dp-tbtn { display: flex; align-items: center; gap: 5px; background: var(--surf2); border: 1px solid var(--brd); border-radius: 5px; color: var(--tx2); cursor: pointer; font-family: var(--sans); font-size: 10.5px; padding: 4px 8px; transition: all .12s; }
+    .dp-tbtn { display: flex; align-items: center; gap: 5px; min-height: 26px; background: var(--surf2); border: 1px solid var(--brd); border-radius: 5px; color: var(--tx2); cursor: pointer; font-family: var(--sans); font-size: 10.5px; padding: 4px 8px; transition: all .12s; }
     .dp-tbtn:hover { background: var(--surf3); border-color: var(--brd-hi); color: var(--acc); }
     .dp-tbtn.on   { background: var(--acc-d); border-color: var(--brd-hi); color: var(--acc); }
 
@@ -470,15 +639,24 @@
 
     const closeSVG = `<svg width="11" height="11" viewBox="0 0 11 11" fill="none"><line x1="1.5" y1="1.5" x2="9.5" y2="9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="9.5" y1="1.5" x2="1.5" y2="9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`;
 
-    return `<div class="dp-p" id="dpp">
+    return `<div class="dp-p" id="dpp" data-theme="${currentTheme}">
       <!-- Header -->
       <div class="dp-header" id="dp-drag">
         <div class="dp-logo">${logoSVG}<span class="dp-logo-tx">DiffPixel</span></div>
         <div class="dp-hbtns">
-          <button class="dp-ibtn" id="dp-theme" title="${t('toggleTheme')}">${sunSVG}</button>
-          <label class="dp-tog" title="${t('toggleOverlay')}"><input type="checkbox" id="dp-en"/><span class="dp-track"><span class="dp-thumb"></span></span></label>
-          <button class="dp-ibtn" id="dp-col" title="Collapse"><span class="dp-chev">▲</span></button>
-          <button class="dp-ibtn" id="dp-close" title="Close panel">${closeSVG}</button>
+          <div class="dp-settings">
+          <select class="dp-lang" id="dp-lang" title="${t('languageTitle')}" aria-label="${t('languageTitle')}">
+            <option value="auto" ${langMode === 'auto' ? 'selected' : ''}>${t('languageAuto')}</option>
+            <option value="en" ${langMode === 'en' ? 'selected' : ''}>${t('languageEnglish')}</option>
+            <option value="ja" ${langMode === 'ja' ? 'selected' : ''}>${t('languageJapanese')}</option>
+          </select>
+          <button class="dp-ibtn" id="dp-theme" title="${t(currentTheme === 'light' ? 'themeDark' : 'themeLight')}" aria-pressed="${currentTheme === 'light'}">${sunSVG}</button>
+          </div>
+          <div class="dp-overlay-actions" aria-label="${t('overlayLabel')}">
+          <label class="dp-tog" title="${t('toggleOverlay')}" aria-label="${t('toggleOverlay')}"><input type="checkbox" id="dp-en"/><span class="dp-track"><span class="dp-thumb"></span></span></label>
+          <button class="dp-ibtn" id="dp-col" title="Collapse" aria-label="Collapse"><span class="dp-chev">▲</span></button>
+          <button class="dp-ibtn" id="dp-close" title="Close panel" aria-label="Close panel">${closeSVG}</button>
+          </div>
         </div>
       </div>
       <!-- Drop zone overlay -->
@@ -523,9 +701,9 @@
           </div>
           <div class="dp-row">
             <span class="dp-cl">${t('labelScale')}</span>
-            <button class="dp-sb" data-f="scale" data-d="-1">◀</button>
-            <div class="dp-nw f1"><input type="number" id="dp-si" class="dp-num fw" value="1.00" step="0.01" min="0.05" max="20"/><span class="dp-unit">×</span></div>
-            <button class="dp-sb" data-f="scale" data-d="1">▶</button>
+            <button class="dp-sb" data-f="scale" data-d="-1" title="Scale -0.001 (Shift: 0.01 / Alt: 0.0001)">◀</button>
+            <div class="dp-nw f1"><input type="text" id="dp-si" class="dp-num fw" value="1.00" inputmode="decimal" autocomplete="off"/><span class="dp-unit">x</span></div>
+            <button class="dp-sb" data-f="scale" data-d="1" title="Scale +0.001 (Shift: 0.01 / Alt: 0.0001)">▶</button>
           </div>
           <div class="dp-row dp-qa">
             <button class="dp-qbtn" id="dp-reset">${t('btnReset')}</button>
@@ -612,7 +790,7 @@
 
       this.applyTheme(currentTheme);
 
-      const defX = Math.max(0, window.innerWidth - 290), defY = 20;
+      const defX = Math.max(0, window.innerWidth - PANEL_WIDTH - PANEL_EDGE_GAP), defY = 20;
       this._px = savedPos?.x ?? defX;
       this._py = savedPos?.y ?? defY;
       this._setPos(this._px, this._py);
@@ -622,15 +800,38 @@
     }
 
     _setPos(x, y) {
-      this._px = Math.min(Math.max(0, x), window.innerWidth  - 272);
+      this._px = Math.min(Math.max(0, x), window.innerWidth - PANEL_WIDTH);
       this._py = Math.min(Math.max(0, y), window.innerHeight - 40);
       this.root.style.left = `${this._px}px`;
       this.root.style.top  = `${this._py}px`;
     }
 
     applyTheme(theme) {
-      currentTheme = theme;
-      this.root?.classList.toggle('dp-light', theme === 'light');
+      currentTheme = normalizeTheme(theme);
+      this.root?.classList.toggle('dp-light', currentTheme === 'light');
+      this.root?.setAttribute('data-theme', currentTheme);
+      const btn = this.shadow?.getElementById('dp-theme');
+      if (btn) {
+        btn.title = t(currentTheme === 'light' ? 'themeDark' : 'themeLight');
+        btn.setAttribute('aria-label', btn.title);
+        btn.setAttribute('aria-pressed', String(currentTheme === 'light'));
+      }
+    }
+
+    refreshLanguage() {
+      if (!this.root) return;
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = buildPanelHTML();
+      const nextRoot = wrapper.firstElementChild;
+      nextRoot.style.pointerEvents = 'auto';
+      nextRoot.style.left = this.root.style.left;
+      nextRoot.style.top = this.root.style.top;
+      nextRoot.classList.toggle('collapsed', this._collapsed);
+      this.root.replaceWith(nextRoot);
+      this.root = nextRoot;
+      this.applyTheme(currentTheme);
+      this._bindEvents();
+      this.renderAll();
     }
 
     /* ── Render ── */
@@ -660,7 +861,7 @@
         const nameDiv = document.createElement('div'); nameDiv.className = 'dp-lname';
         nameDiv.textContent = meta.name;
         const metaDiv = document.createElement('div'); metaDiv.className = 'dp-lmeta';
-        metaDiv.textContent = `${Math.round(meta.opacity*100)}% · ${meta.x}px ${meta.y}px · ×${Number(meta.scale).toFixed(2)}`;
+        metaDiv.textContent = `${Math.round(meta.opacity * 100)}% | ${meta.x}px ${meta.y}px | x${formatScale(meta.scale)}`;
         info.appendChild(nameDiv); info.appendChild(metaDiv);
 
         const vis = document.createElement('button');
@@ -696,7 +897,7 @@
       const on = g('dp-onum'); if (on) on.value = v;
       const xi = g('dp-xi'); if (xi) xi.value = meta.x;
       const yi = g('dp-yi'); if (yi) yi.value = meta.y;
-      const si = g('dp-si'); if (si) si.value = Number(meta.scale).toFixed(2);
+      const si = g('dp-si'); if (si && si !== this.shadow.activeElement) si.value = formatScale(meta.scale);
       const bl = g('dp-blend'); if (bl) bl.value = meta.blendMode;
       g('dp-inv')?.classList.toggle('on',  !!meta.invert);
       g('dp-lock')?.classList.toggle('on', !!meta.locked);
@@ -762,6 +963,14 @@
         if (files.length) this._addLayers(files);
       });
 
+      /* Language */
+      g('dp-lang')?.addEventListener('change', e => {
+        langMode = normalizeLang(e.target.value);
+        updateActiveLang();
+        chrome.storage.local.set({ [K.LANG]: langMode });
+        this.refreshLanguage();
+      });
+
       /* Theme */
       g('dp-theme')?.addEventListener('click', () => {
         const next = currentTheme === 'dark' ? 'light' : 'dark';
@@ -799,7 +1008,7 @@
         g(id)?.addEventListener('input', e => {
           const meta = getActiveMeta(); if (!meta) return;
           let v = parse(e.target.value, 10);
-          if (field === 'scale') v = Math.max(0.05, v || 1);
+          if (field === 'scale') v = normalizeScale(v, meta.scale);
           else v = v || 0;
           meta[field] = v;
           layerDOM.get(meta.id)?.applyStyle(meta); this.renderLayers(); debounceSave();
@@ -809,14 +1018,31 @@
       bindNum('dp-yi', 'y');
       bindNum('dp-si', 'scale', parseFloat);
 
+      g('dp-si')?.addEventListener('keydown', e => {
+        if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+        const meta = getActiveMeta(); if (!meta) return;
+        e.preventDefault();
+        const dir = e.key === 'ArrowUp' ? 1 : -1;
+        const typed = Number(e.target.value);
+        const base = Number.isFinite(typed) ? typed : meta.scale;
+        meta.scale = normalizeScale(base + dir * SCALE_KEY_STEP, meta.scale);
+        e.target.value = formatScale(meta.scale);
+        layerDOM.get(meta.id)?.applyStyle(meta); this.renderLayers(); debounceSave();
+      });
+
+      g('dp-si')?.addEventListener('blur', e => {
+        const meta = getActiveMeta(); if (!meta) return;
+        e.target.value = formatScale(meta.scale);
+      });
+
       /* Step buttons */
       this.shadow.querySelectorAll('.dp-sb').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', e => {
           const meta = getActiveMeta(); if (!meta) return;
           const f = btn.dataset.f, d = +btn.dataset.d;
           if (f === 'x')     meta.x += d;
           else if (f === 'y') meta.y += d;
-          else if (f === 'scale') meta.scale = Math.max(0.05, Math.round((meta.scale + d * 0.05) * 100) / 100);
+          else if (f === 'scale') meta.scale = normalizeScale(meta.scale + d * scaleStepFromEvent(e), meta.scale);
           layerDOM.get(meta.id)?.applyStyle(meta);
           this.renderControls(); this.renderLayers(); debounceSave();
         });
@@ -837,7 +1063,7 @@
       g('dp-fitw')?.addEventListener('click', () => {
         const meta = getActiveMeta(), layer = meta ? layerDOM.get(meta.id) : null; if (!meta || !layer) return;
         const nw = layer.img?.naturalWidth; if (!nw) return;
-        meta.scale = Math.round((window.innerWidth / nw) * 100) / 100; meta.x = 0;
+        meta.scale = normalizeScale(window.innerWidth / nw, meta.scale); meta.x = 0;
         layerDOM.get(meta.id)?.applyStyle(meta); this.renderControls(); this.renderLayers(); debounceSave();
       });
 
@@ -888,6 +1114,7 @@
     /* ── Add layers from one or more files ── */
     _addLayers(files) {
       [...files].forEach(file => {
+        if (!file.type.startsWith('image/') || file.size > MAX_IMAGE_BYTES) return;
         const reader = new FileReader();
         reader.onload = e => {
           const data = e.target.result;
@@ -897,6 +1124,7 @@
           imageData.set(id, data);
           layerMeta.push(meta);
           activeLayerId = id;
+          setEnabled(true);
           const l = new Layer(id); layerDOM.set(id, l); l.mount(containerEl, meta);
           this.renderAll(); debounceSave(true);
         };
@@ -944,6 +1172,7 @@
         }
         const meta = sanitizeMeta(l);
         layerMeta.push(meta); activeLayerId = meta.id;
+        setEnabled(true);
         const ld = new Layer(meta.id); layerDOM.set(meta.id, ld); ld.mount(containerEl, meta);
         panel?.renderAll(); debounceSave(true); reply({ ok: true }); break;
       }
@@ -1039,6 +1268,12 @@
 
     if (changes[K.THEME]) {
       panel?.applyTheme(changes[K.THEME].newValue);
+    }
+
+    if (changes[K.LANG]) {
+      langMode = normalizeLang(changes[K.LANG].newValue);
+      updateActiveLang();
+      panel?.refreshLanguage();
     }
   });
 

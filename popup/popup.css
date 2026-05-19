@@ -17,12 +17,15 @@
   --danger-dim: rgba(255,77,106,0.12);
   --success:    #00e5a0;
   --radius:     6px;
-  --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
-  --sans: 'DM Sans', system-ui, sans-serif;
+  --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', ui-monospace, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 }
 
 /* ── Light theme ─────────────────────────── */
-body.dp-light {
+:root.dp-light,
+:root[data-theme="light"],
+body.dp-light,
+body[data-theme="light"] {
   --bg:         #f2f3f8;
   --surface:    #ffffff;
   --surface2:   #ebebf5;
@@ -45,10 +48,18 @@ html, body {
   width: 320px;
   background: var(--bg);
   color: var(--text);
+  color-scheme: dark;
   font-family: var(--sans);
   font-size: 12px;
   line-height: 1.5;
   overflow-x: hidden;
+}
+
+html.dp-light,
+html[data-theme="light"],
+body.dp-light,
+body[data-theme="light"] {
+  color-scheme: light;
 }
 
 /* ── Header ──────────────────────────────── */
@@ -83,6 +94,32 @@ html, body {
   gap: 6px;
 }
 
+.header-settings {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lang-select {
+  width: 90px;
+  height: 26px;
+  padding: 0 6px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-2);
+  font-family: var(--sans);
+  font-size: 10.5px;
+  cursor: pointer;
+  outline: none;
+}
+.lang-select:hover,
+.lang-select:focus {
+  background: var(--accent-dim);
+  border-color: var(--border-hi);
+  color: var(--text);
+}
+
 /* Theme toggle button */
 .theme-btn {
   display: flex;
@@ -99,6 +136,11 @@ html, body {
   flex-shrink: 0;
 }
 .theme-btn:hover {
+  background: var(--accent-dim);
+  border-color: var(--border-hi);
+  color: var(--accent);
+}
+.theme-btn[aria-pressed="true"] {
   background: var(--accent-dim);
   border-color: var(--border-hi);
   color: var(--accent);
@@ -138,6 +180,7 @@ html, body {
 .statusbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 7px;
   padding: 5px 14px;
   font-size: 10.5px;
@@ -146,6 +189,35 @@ html, body {
   border-bottom: 1px solid var(--border);
   font-family: var(--mono);
   min-height: 26px;
+}
+
+.status-main {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+#statusText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overlay-switch {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.overlay-switch-label {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .02em;
 }
 
 .status-dot {

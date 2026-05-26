@@ -11,8 +11,9 @@
   "sectionControls": { "message": "調整" },
   "sectionTools": { "message": "ツール" },
 
-  "addLayerTitle": { "message": "レイヤーを追加 - クリックまたは画像をドロップ" },
-  "emptyState": { "message": "画像をドロップ、または + で開始" },
+  "addLayerTitle": { "message": "レイヤーを追加 - クリック、ドロップ、または貼り付け" },
+  "btnAddLayer": { "message": "追加" },
+  "emptyState": { "message": "画像をドロップ、貼り付け、または + で開始" },
 
   "labelOpacity": { "message": "不透明度" },
   "labelX": { "message": "X" },
@@ -50,8 +51,10 @@
   "visShow": { "message": "レイヤーを表示" },
   "visHide": { "message": "レイヤーを非表示" },
   "dropHint": { "message": "画像をドロップして追加" },
+  "clipboardLayerName": { "message": "クリップボード画像" },
 
   "layerDefault": { "message": "レイヤー" },
+  "labelLayerName": { "message": "名前" },
   "layerNamePlaceholder": { "message": "レイヤー名" },
 
   "toggleTheme": { "message": "ライト / ダークテーマを切り替え" },

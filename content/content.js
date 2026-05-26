@@ -9,14 +9,15 @@
 
   const I18N = {
     en: {
-      sectionLayers: 'LAYERS', sectionControls: 'CONTROLS', addLayerTitle: 'Add layer - click or drop image',
-      emptyState: 'Drop an image or click + to start', labelOpacity: 'Opacity', labelX: 'X', labelY: 'Y',
-      labelScale: 'Scale', labelBlend: 'Blend', blendNormal: 'Normal', blendDifference: 'Difference',
+      sectionLayers: 'LAYERS', sectionControls: 'CONTROLS', addLayerTitle: 'Add layer - click, drop, or paste image',
+      emptyState: 'Drop, paste, or click + to start', labelOpacity: 'Opacity', labelX: 'X', labelY: 'Y',
+      labelScale: 'Scale', labelLayerName: 'Name', labelBlend: 'Blend', blendNormal: 'Normal', blendDifference: 'Difference',
       blendMultiply: 'Multiply', blendScreen: 'Screen', blendOverlay: 'Overlay', blendHardLight: 'Hard Light',
       blendExclusion: 'Exclusion', btnInvert: 'Invert', btnLock: 'Lock', btnRemove: 'Remove',
-      btnReset: 'Reset', btnCenter: 'Center', btnFitW: 'Fit W', btnGrid: 'Grid',
+      btnReset: 'Reset', btnCenter: 'Center', btnFitW: 'Fit W', btnGrid: 'Grid', btnAddLayer: 'Add',
       visShow: 'Show layer', visHide: 'Hide layer', dropHint: 'Drop image to add layer',
       layerDefault: 'Layer', layerNamePlaceholder: 'Layer name', toggleTheme: 'Toggle light / dark theme',
+      clipboardLayerName: 'Clipboard image',
       themeLight: 'Switch to light theme', themeDark: 'Switch to dark theme',
       toggleOverlay: 'Enable / disable overlay', overlayLabel: 'Overlay', languageTitle: 'Language', languageAuto: 'Lang: Auto',
       languageEnglish: 'Lang: EN', languageJapanese: 'Lang: JA',
@@ -25,10 +26,64 @@
   const LANG_VALUES = new Set(['auto', 'en', 'ja']);
   let langMode = 'auto';
   let activeLang = 'en';
+  let extensionContextInvalid = false;
 
   function normalizeLang(value) { return LANG_VALUES.has(value) ? value : 'auto'; }
+  function isExtensionContextInvalidError(error) {
+    return /Extension context invalidated/i.test(error?.message || String(error || ''));
+  }
+  function getRuntimeId() {
+    if (extensionContextInvalid) return '';
+    try {
+      return typeof chrome !== 'undefined' ? chrome.runtime?.id ?? '' : '';
+    } catch (error) {
+      if (isExtensionContextInvalidError(error)) extensionContextInvalid = true;
+      return '';
+    }
+  }
+  function canUseExtensionApi() {
+    if (!getRuntimeId()) return false;
+    try {
+      return typeof chrome !== 'undefined' && !!chrome.storage?.local;
+    } catch (error) {
+      if (isExtensionContextInvalidError(error)) extensionContextInvalid = true;
+      return false;
+    }
+  }
+  async function safeStorageGet(keys, fallback = {}) {
+    if (!canUseExtensionApi()) return fallback;
+    try {
+      return await chrome.storage.local.get(keys);
+    } catch (error) {
+      if (isExtensionContextInvalidError(error)) {
+        extensionContextInvalid = true;
+        return fallback;
+      }
+      throw error;
+    }
+  }
+  async function safeStorageSet(value) {
+    if (!canUseExtensionApi()) return false;
+    try {
+      await chrome.storage.local.set(value);
+      return true;
+    } catch (error) {
+      if (isExtensionContextInvalidError(error)) {
+        extensionContextInvalid = true;
+        return false;
+      }
+      throw error;
+    }
+  }
+  function queueStorageSet(value) {
+    safeStorageSet(value).catch(error => {
+      if (!isExtensionContextInvalidError(error)) console.warn('[DiffPixel] Failed to save setting', error);
+    });
+  }
   function browserLang() {
-    const lang = chrome.i18n.getUILanguage?.() || navigator.language || 'en';
+    let uiLang = '';
+    try { uiLang = chrome.i18n.getUILanguage?.() || ''; } catch {}
+    const lang = uiLang || navigator.language || 'en';
     return lang.toLowerCase().startsWith('ja') ? 'ja' : 'en';
   }
   function updateActiveLang() {
@@ -53,30 +108,44 @@
   const SCALE_DECIMALS = 4;
   const SCALE_DISPLAY_DECIMALS = 2;
   const SCALE_PRECISION = 10 ** SCALE_DECIMALS;
-  const SCALE_STEP = 0.001;
+  const SCALE_STEP = 0.1;
   const SCALE_STEP_COARSE = 0.01;
-  const SCALE_STEP_FINE = 0.0001;
-  const SCALE_KEY_STEP = 0.1;
+  const SCALE_STEP_FINE = 0.001;
   const BASE_STYLE_ID = 'dp-base-style';
+  const IMAGE_EXT_BY_MIME = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'image/bmp': 'bmp' };
+  const isEditablePasteTarget = event => {
+    const path = event.composedPath?.() ?? [event.target];
+    return path.some(node => {
+      if (!(node instanceof Element)) return false;
+      if (node.isContentEditable) return true;
+      if (node.matches?.('input, textarea, select')) return true;
+      return !!node.closest?.('[contenteditable="true"], [contenteditable="plaintext-only"]');
+    });
+  };
   const BASE_CSS = `
     html > #dp-root {
-      display: contents !important;
-      z-index: auto !important;
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 0 !important;
+      height: 0 !important;
+      z-index: 2147483645 !important;
       pointer-events: none !important;
       overflow: visible !important;
       isolation: auto !important;
     }
     html > #dp-root .dp-layer {
-      position: fixed !important;
+      position: absolute !important;
       top: 0 !important;
       left: 0 !important;
       width: max-content !important;
       height: max-content !important;
       z-index: 2147483645 !important;
       transform-origin: top left !important;
-      will-change: transform, filter !important;
+      will-change: auto !important;
       pointer-events: auto;
       isolation: auto !important;
+      backface-visibility: hidden !important;
     }
     html > #dp-root .dp-layer img {
       display: block !important;
@@ -137,6 +206,35 @@
     if (e?.altKey) return SCALE_STEP_FINE;
     if (e?.shiftKey) return SCALE_STEP_COARSE;
     return SCALE_STEP;
+  }
+
+  function extensionAsset(path) {
+    try {
+      return chrome.runtime.getURL(path);
+    } catch {
+      return '';
+    }
+  }
+
+  function themeIconSVG(theme) {
+    if (theme === 'light') {
+      return `<svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+        <circle cx="7.5" cy="7.5" r="3" stroke="currentColor" stroke-width="1.4"/>
+        <line x1="7.5" y1="1" x2="7.5" y2="2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="7.5" y1="12.5" x2="7.5" y2="14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="1" y1="7.5" x2="2.5" y2="7.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="12.5" y1="7.5" x2="14" y2="7.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="3.2" y1="3.2" x2="4.2" y2="4.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="10.8" y1="10.8" x2="11.8" y2="11.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="11.8" y1="3.2" x2="10.8" y2="4.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="4.2" y1="10.8" x2="3.2" y2="11.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>`;
+    }
+
+    return `<svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+      <path d="M11.9 9.2A5 5 0 0 1 5.8 3.1a5.2 5.2 0 1 0 6.1 6.1Z" stroke="currentColor" stroke-width="1.45" stroke-linejoin="round"/>
+      <path d="M10.5 2.1l.35 1.05 1.05.35-1.05.35-.35 1.05-.35-1.05-1.05-.35 1.05-.35.35-1.05Z" fill="currentColor"/>
+    </svg>`;
   }
 
   function sanitizeMeta(m) {
@@ -215,7 +313,7 @@
       this.el.style.display      = (meta.visible && globalEnabled) ? 'block' : 'none';
       this.el.style.zIndex       = '2147483645';
       this.el.style.opacity      = '1';
-      this.el.style.transform    = `translate3d(${meta.x}px,${meta.y}px,0) scale(${meta.scale})`;
+      this.el.style.transform    = `translate(${meta.x}px, ${meta.y}px) scale(${meta.scale})`;
       this.el.style.mixBlendMode = blendMode;
       this.el.style.pointerEvents= meta.locked ? 'none' : 'auto';
       this.el.style.filter       = 'none';
@@ -236,9 +334,9 @@
         this._raf = requestAnimationFrame(() => {
           const m = getMeta(this.id);
           if (m) {
-            m.x = ox + e.clientX - sx;
-            m.y = oy + e.clientY - sy;
-            this.el.style.transform = `translate3d(${m.x}px,${m.y}px,0) scale(${m.scale})`;
+            m.x = ox + e.pageX - sx;
+            m.y = oy + e.pageY - sy;
+            this.el.style.transform = `translate(${m.x}px, ${m.y}px) scale(${m.scale})`;
           }
           pending = false;
         });
@@ -258,7 +356,7 @@
         const m = getMeta(this.id);
         if (!m || m.locked || e.button !== 0) return;
         e.preventDefault(); e.stopPropagation();
-        sx = e.clientX; sy = e.clientY; ox = m.x; oy = m.y;
+        sx = e.pageX; sy = e.pageY; ox = m.x; oy = m.y;
         this.el.classList.add('dp-dragging');
         this._dragCleanup = () => {
           document.removeEventListener('mousemove', onMove, { capture: true });
@@ -275,6 +373,8 @@
   /* ── Meta helpers ────────────────────────── */
   const getMeta       = id => layerMeta.find(m => m.id === id);
   const getActiveMeta = ()  => getMeta(activeLayerId);
+  const pageLeft      = ()  => window.scrollX || document.documentElement.scrollLeft || 0;
+  const pageTop       = ()  => window.scrollY || document.documentElement.scrollTop || 0;
 
   /* ── DOM setup ───────────────────────────── */
   function ensureBaseStyles() {
@@ -340,13 +440,17 @@
   let _saveTimer = null;
   function debounceSave(immediate = false) {
     clearTimeout(_saveTimer);
-    _saveTimer = setTimeout(saveToStorage, immediate ? 0 : 280);
+    _saveTimer = setTimeout(() => {
+      saveToStorage().catch(error => {
+        if (!isExtensionContextInvalidError(error)) console.warn('[DiffPixel] Failed to save state', error);
+      });
+    }, immediate ? 0 : 280);
   }
 
   async function saveToStorage() {
     const imgs = {};
     layerMeta.forEach(m => { const d = imageData.get(m.id); if (d) imgs[m.id] = d; });
-    await chrome.storage.local.set({
+    await safeStorageSet({
       [K.STATE]:  { enabled: globalEnabled, activeLayerId, grid: gridConfig, layers: layerMeta },
       [K.IMAGES]: imgs,
     });
@@ -354,7 +458,7 @@
 
   /* ── Storage: load ───────────────────────── */
   async function loadFromStorage() {
-    const res = await chrome.storage.local.get([K.STATE, K.IMAGES, K.THEME, K.LANG, K.PANEL_POS]);
+    const res = await safeStorageGet([K.STATE, K.IMAGES, K.THEME, K.LANG, K.PANEL_POS]);
     langMode = normalizeLang(res[K.LANG]);
     updateActiveLang();
     currentTheme = normalizeTheme(res[K.THEME] ?? preferredTheme());
@@ -380,7 +484,7 @@
   /* ─────────────────────────────────────────────
      PANEL CSS — embedded in shadow root
   ──────────────────────────────────────────────── */
-  const PANEL_WIDTH = 340;
+  const PANEL_WIDTH = 360;
   const PANEL_EDGE_GAP = 18;
 
   const PANEL_CSS = `
@@ -391,7 +495,8 @@
       --bg:     #0d0d16; --surf:   #161622; --surf2:  #1e1e2e; --surf3:  #252538;
       --brd:    rgba(255,255,255,0.07); --brd-hi: rgba(0,212,255,0.28);
       --acc:    #00d4ff; --acc-d:  rgba(0,212,255,0.12);
-      --tx:     #e8eaf0; --tx2:    #8890a4; --tx3:    #50566a;
+      --active-bg: #00d4ff; --active-soft: rgba(0,212,255,.28); --active-brd: #78eeff; --active-ring: rgba(0,212,255,0.30); --active-fg: #041018;
+      --tx:     #e8eaf0; --tx2:    #aab2c5; --tx3:    #919bb0;
       --dng:    #ff4d6a; --dng-d:  rgba(255,77,106,0.12); --ok: #00e5a0;
       --r: 8px;
       --sans: -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
@@ -402,7 +507,7 @@
       background: var(--bg);
       border: 1px solid var(--brd);
       border-radius: var(--r);
-      box-shadow: 0 16px 48px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04);
+      box-shadow: none;
       font-family: var(--sans); font-size: 12px; color: var(--tx);
       z-index: 2147483647; overflow: hidden; user-select: none;
     }
@@ -413,32 +518,41 @@
       --bg:    #f2f3f8; --surf:  #ffffff; --surf2: #ebebf5; --surf3: #dfe0ef;
       --brd:   rgba(0,0,0,0.08); --brd-hi: rgba(0,80,220,0.25);
       --acc:   #0055cc; --acc-d: rgba(0,85,204,0.09);
-      --tx:    #1a1d2e; --tx2:   #5a6080; --tx3:   #9499b0;
+      --active-bg: #0055cc; --active-soft: rgba(0,85,204,.18); --active-brd: #2d7cff; --active-ring: rgba(0,85,204,0.22); --active-fg: #ffffff;
+      --tx:    #1a1d2e; --tx2:   #4b5270; --tx3:   #59627b;
       --dng:   #d63050; --dng-d: rgba(214,48,80,0.1); --ok: #00966a;
       color-scheme: light;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.06);
+      box-shadow: none;
     }
 
     /* Header */
     .dp-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 9px 0 12px; height: 40px;
+      display: flex; align-items: center; justify-content: flex-start; gap: 16px;
+      padding: 0 11px 0 14px; height: 40px;
       background: var(--surf); border-bottom: 1px solid var(--brd);
       cursor: grab; flex-shrink: 0;
     }
     .dp-header:active { cursor: grabbing; }
     .dp-logo {
       display: flex; align-items: center; gap: 8px;
-      min-width: 0; flex: 1 1 auto; margin-right: 14px;
+      min-width: max-content; flex: 0 0 auto; padding-right: 14px;
+      border-right: 1px solid var(--brd);
       pointer-events: none;
     }
-    .dp-logo-tx { font-size: 13px; font-weight: 600; letter-spacing: 0; color: var(--tx); }
-    .dp-hbtns { display: flex; align-items: center; gap: 7px; flex: 0 0 auto; }
+    .dp-logo-img {
+      width: 22px; height: 22px; flex: 0 0 22px;
+      object-fit: contain; display: block;
+    }
+    .dp-logo-fallback {
+      width: 22px; height: 22px; display: block; flex: 0 0 22px;
+    }
+    .dp-logo-tx { font-size: 13px; font-weight: 600; letter-spacing: 0; color: var(--tx); white-space: nowrap; }
+    .dp-hbtns { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; margin-left: 0; }
     .dp-settings, .dp-overlay-actions {
-      display: flex; align-items: center; gap: 5px;
+      display: flex; align-items: center; gap: 7px;
     }
     .dp-settings {
-      padding-right: 7px; margin-right: 0;
+      padding-right: 10px; margin-right: 0;
       border-right: 1px solid var(--brd);
     }
     .dp-overlay-actions {
@@ -452,19 +566,29 @@
       outline: none; cursor: pointer;
     }
     .dp-lang:hover, .dp-lang:focus { border-color: var(--brd-hi); color: var(--tx); }
+    .dp-p :where(button, select, input, .dp-addbtn, .dp-li):focus-visible {
+      outline: 2px solid var(--active-brd);
+      outline-offset: 2px;
+    }
 
     .dp-ibtn {
       display: flex; align-items: center; justify-content: center;
-      width: 26px; height: 26px; background: none; border: none;
+      width: 26px; height: 26px; background: none; border: 1px solid transparent;
       border-radius: 4px; color: var(--tx2); cursor: pointer; font-size: 11px;
-      transition: background .12s, color .12s;
+      transition: background .12s, color .12s, border-color .12s, box-shadow .12s;
     }
     .dp-ibtn:hover { background: var(--surf2); color: var(--tx); }
-    .dp-ibtn[aria-pressed="true"] { background: var(--acc-d); color: var(--acc); }
+    .dp-ibtn[aria-pressed="true"] {
+      background: var(--active-bg); border-color: var(--active-brd); color: var(--active-fg);
+      box-shadow: inset 0 0 0 1px var(--active-brd), 0 0 0 2px var(--active-ring);
+    }
 
     /* Toggle */
-    .dp-tog { display: flex; align-items: center; min-width: 34px; min-height: 26px; cursor: pointer; }
-    .dp-tog input { display: none; }
+    .dp-tog { display: flex; align-items: center; min-width: 34px; min-height: 26px; cursor: pointer; position: relative; }
+    .dp-tog input {
+      position: absolute; width: 1px; height: 1px; margin: 0; padding: 0;
+      opacity: 0; pointer-events: none;
+    }
     .dp-track {
       width: 30px; height: 16px; background: var(--surf3);
       border-radius: 8px; border: 1px solid var(--brd); position: relative;
@@ -475,11 +599,16 @@
       width: 12px; height: 12px; border-radius: 50%; background: var(--tx3);
       transition: transform .2s, background .2s, box-shadow .2s;
     }
-    .dp-tog input:checked + .dp-track { background: rgba(0,212,255,.18); border-color: var(--acc); }
-    .dp-p.dp-light .dp-tog input:checked + .dp-track { background: rgba(0,85,204,.12); }
+    .dp-tog input:checked + .dp-track {
+      background: var(--active-bg); border-color: var(--active-brd);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.35), 0 0 0 2px var(--active-ring);
+    }
+    .dp-tog input:focus-visible + .dp-track {
+      box-shadow: 0 0 0 2px var(--active-ring), 0 0 0 4px rgba(0,85,204,.12);
+    }
     .dp-tog input:checked + .dp-track .dp-thumb {
-      background: var(--acc); transform: translateX(14px);
-      box-shadow: 0 0 6px rgba(0,212,255,.45);
+      background: var(--active-fg); transform: translateX(14px);
+      box-shadow: 0 1px 4px rgba(0,0,0,.35);
     }
 
     /* Chevron */
@@ -504,21 +633,38 @@
     /* Add button */
     .dp-addbtn {
       display: flex; align-items: center; justify-content: center;
-      width: 22px; height: 22px; background: var(--surf3); border: 1px solid var(--brd);
-      border-radius: 4px; color: var(--tx2); cursor: pointer; font-size: 16px; line-height: 1;
-      transition: all .12s;
+      gap: 5px; min-width: 58px; height: 24px; padding: 0 8px;
+      background: var(--acc-d); border: 1px solid var(--brd-hi);
+      border-radius: 5px; color: var(--acc); cursor: pointer; font-size: 10.5px; font-weight: 700; line-height: 1;
+      transition: background .12s, border-color .12s, color .12s, box-shadow .12s, transform .08s;
     }
-    .dp-addbtn:hover { background: var(--acc-d); border-color: var(--brd-hi); color: var(--acc); }
+    .dp-addbtn:hover { background: var(--active-soft); border-color: var(--active-brd); color: var(--acc); box-shadow: 0 0 0 2px var(--active-ring); }
+    .dp-addbtn:active { transform: scale(.97); }
+    .dp-addbtn input {
+      position: absolute; width: 1px; height: 1px; margin: 0; padding: 0;
+      opacity: 0; pointer-events: none;
+    }
+    .dp-add-plus { font-size: 15px; font-weight: 800; line-height: 1; }
 
     /* Layer list */
     .dp-ll { display: flex; flex-direction: column; gap: 2px; }
     .dp-li {
       display: flex; align-items: center; gap: 8px;
       padding: 5px 6px; border-radius: 5px; border: 1px solid transparent;
+      position: relative;
       cursor: pointer; transition: background .1s, border-color .1s;
     }
     .dp-li:hover  { background: var(--surf2); border-color: var(--brd); }
-    .dp-li.active { background: var(--acc-d); border-color: var(--brd-hi); }
+    .dp-li.active {
+      background: var(--active-soft);
+      border-color: var(--active-brd);
+      box-shadow: inset 0 0 0 1px var(--active-brd), 0 0 0 2px var(--active-ring);
+    }
+    .dp-li.active .dp-th {
+      border-color: var(--active-brd);
+      box-shadow: 0 0 0 1px var(--active-ring);
+    }
+    .dp-li.active .dp-lname { color: var(--acc); font-weight: 700; }
 
     .dp-th { width: 34px; height: 22px; border-radius: 3px; overflow: hidden; background: var(--surf3); border: 1px solid var(--brd); flex-shrink: 0; }
     .dp-th img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -539,16 +685,17 @@
 
     /* Controls */
     .dp-ni { /* name input */
-      width: 100%; background: var(--surf2); border: 1px solid var(--brd);
+      flex: 1; min-width: 0; width: auto; background: var(--surf2); border: 1px solid var(--brd);
       border-radius: 4px; color: var(--tx); font-family: var(--sans); font-size: 11px;
-      font-weight: 500; min-height: 24px; padding: 3px 7px; outline: none; transition: border-color .15s;
-      margin-bottom: 6px;
+      font-weight: 500; min-height: 26px; padding: 4px 7px; outline: none; transition: border-color .15s;
     }
     .dp-ni:focus { border-color: var(--brd-hi); background: var(--surf3); }
 
     .dp-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
     .dp-row:last-child { margin-bottom: 0; }
     .dp-cl { font-size: 10.5px; color: var(--tx2); width: 46px; flex-shrink: 0; }
+    .dp-name-row .dp-cl, .dp-blend-row .dp-cl { font-weight: 600; }
+    .dp-blend-row.is-active .dp-cl { color: var(--active-brd); font-weight: 700; }
 
     /* Slider */
     .dp-sw { flex: 1; }
@@ -578,25 +725,51 @@
     /* Select */
     .dp-selw { position: relative; flex: 1; }
     .dp-selw::after { content: '▾'; position: absolute; right: 7px; top: 50%; transform: translateY(-50%); color: var(--tx3); font-size: 9px; pointer-events: none; }
-    .dp-sel { width: 100%; min-height: 24px; -webkit-appearance: none; background: var(--surf2); border: 1px solid var(--brd); border-radius: 4px; color: var(--tx); font-family: var(--sans); font-size: 10.5px; padding: 4px 20px 4px 7px; cursor: pointer; outline: none; transition: border-color .12s; }
-    .dp-sel:focus { border-color: var(--brd-hi); }
+    .dp-sel { width: 100%; min-height: 24px; -webkit-appearance: none; background: var(--surf2); border: 1px solid var(--brd); border-radius: 4px; color: var(--tx); font-family: var(--sans); font-size: 10.5px; padding: 4px 20px 4px 7px; cursor: pointer; outline: none; transition: background .12s, border-color .12s, box-shadow .12s, color .12s; }
+    .dp-sel:focus { border-color: var(--active-brd); box-shadow: 0 0 0 2px var(--active-ring); }
+    .dp-blend-row.is-active .dp-selw::before {
+      content: none; display: none;
+    }
+    .dp-blend-row.is-active .dp-selw::after { color: var(--acc); }
+    .dp-blend-row.is-active .dp-sel {
+      background: var(--active-soft); border-color: var(--active-brd); color: var(--acc);
+      font-weight: 700; padding-right: 20px;
+      box-shadow: inset 0 0 0 1px var(--active-brd), 0 0 0 2px var(--active-ring);
+    }
 
     /* Flag buttons */
-    .dp-frow { gap: 4px; flex-wrap: wrap; }
-    .dp-fbtn { display: flex; align-items: center; gap: 4px; min-height: 24px; background: var(--surf2); border: 1px solid var(--brd); border-radius: 5px; color: var(--tx2); cursor: pointer; font-family: var(--sans); font-size: 10.5px; padding: 4px 7px; transition: all .12s; white-space: nowrap; }
+    .dp-frow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 42px; gap: 6px; align-items: stretch; margin-top: 2px; }
+    .dp-fbtn { display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%; min-height: 28px; background: var(--surf2); border: 1px solid var(--brd); border-radius: 5px; color: var(--tx2); cursor: pointer; font-family: var(--sans); font-size: 10.5px; padding: 5px 8px; transition: all .12s; white-space: nowrap; }
     .dp-fbtn:hover { background: var(--surf3); border-color: var(--brd-hi); color: var(--acc); }
-    .dp-fbtn.on  { background: var(--acc-d); border-color: var(--brd-hi); color: var(--acc); }
-    .dp-fbtn.dng:hover { background: var(--dng-d); border-color: rgba(255,77,106,.3); color: var(--dng); }
+    .dp-fbtn.on  {
+      background: var(--active-soft) !important; border-color: var(--active-brd); color: var(--acc) !important; font-weight: 700;
+      box-shadow: inset 0 0 0 1px var(--active-brd), 0 0 0 2px var(--active-ring);
+    }
+    .dp-p[data-theme="light"] .dp-fbtn.on,
+    .dp-p.dp-light .dp-fbtn.on {
+      background: var(--active-soft) !important;
+      color: #0055cc !important;
+    }
+    .dp-fbtn.on::before {
+      content: none; display: none;
+    }
+    .dp-fbtn.dng {
+      width: 42px; min-width: 42px; padding: 0; background: rgba(255,77,106,.18); border-color: rgba(255,77,106,.55);
+      color: var(--dng); font-weight: 700;
+    }
+    .dp-fbtn.dng:hover { background: var(--dng); border-color: var(--dng); color: #fff; }
 
     /* Tool buttons */
-    .dp-trow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    .dp-tbtn { display: flex; align-items: center; gap: 5px; min-height: 26px; background: var(--surf2); border: 1px solid var(--brd); border-radius: 5px; color: var(--tx2); cursor: pointer; font-family: var(--sans); font-size: 10.5px; padding: 4px 8px; transition: all .12s; }
+    .dp-trow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px; }
+    .dp-tbtn { display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 116px; min-height: 26px; background: var(--surf2); border: 1px solid var(--brd); border-radius: 5px; color: var(--tx2); cursor: pointer; font-family: var(--sans); font-size: 10.5px; padding: 4px 8px; transition: all .12s; }
     .dp-tbtn:hover { background: var(--surf3); border-color: var(--brd-hi); color: var(--acc); }
-    .dp-tbtn.on   { background: var(--acc-d); border-color: var(--brd-hi); color: var(--acc); }
-
+    .dp-tbtn.on   {
+      background: var(--active-soft); border-color: var(--active-brd); color: var(--acc); font-weight: 700;
+      box-shadow: inset 0 0 0 1px var(--active-brd), 0 0 0 2px var(--active-ring);
+    }
     /* Initially-hidden elements */
     #dp-ctrl  { display: none; }
-    #dp-gsize { display: none; }
+    #dp-gsize { display: flex; }
     .dp-onum-w { width: 36px; }
     .dp-gnum-w { width: 38px; }
 
@@ -614,35 +787,25 @@
 
   /* ── Panel HTML ──────────────────────────── */
   function buildPanelHTML() {
-    const logoSVG = `<svg width="18" height="18" viewBox="0 0 22 22" fill="none">
-      <rect x="1" y="1" width="9" height="9" rx="1" stroke="var(--acc)" stroke-width="1.5"/>
-      <rect x="12" y="1" width="9" height="9" rx="1" stroke="var(--acc)" stroke-width="1.5" opacity=".4"/>
-      <rect x="1" y="12" width="9" height="9" rx="1" stroke="var(--acc)" stroke-width="1.5" opacity=".4"/>
-      <rect x="12" y="12" width="9" height="9" rx="1" stroke="var(--acc)" stroke-width="1.5"/>
-      <line x1="11" y1="5.5" x2="11" y2="16.5" stroke="var(--acc)" stroke-width="1" opacity=".3"/>
-      <line x1="5.5" y1="11" x2="16.5" y2="11" stroke="var(--acc)" stroke-width="1" opacity=".3"/>
+    const logoURL = extensionAsset('icons/icon32.png');
+    const logoFallback = `<svg class="dp-logo-fallback" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+      <rect x="1" y="1" width="9" height="9" rx="2" fill="var(--acc)" stroke="#04121a" stroke-width="1.3"/>
+      <rect x="12" y="1" width="9" height="9" rx="2" fill="#0b6f86" stroke="#04121a" stroke-width="1.3"/>
+      <rect x="1" y="12" width="9" height="9" rx="2" fill="#087089" stroke="#04121a" stroke-width="1.3"/>
+      <rect x="12" y="12" width="9" height="9" rx="2" fill="var(--acc)" stroke="#04121a" stroke-width="1.3"/>
+      <path d="M3.6 3.4h3.8M14.6 3.4h3.8M3.6 14.4h3.8M14.6 14.4h3.8" stroke="#5feeff" stroke-width="1" stroke-linecap="round" opacity=".85"/>
     </svg>`;
-    const sunSVG = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-      <circle cx="7" cy="7" r="2.8" stroke="currentColor" stroke-width="1.3"/>
-      <line x1="7" y1="1" x2="7" y2="2.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-      <line x1="7" y1="11.6" x2="7" y2="13" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-      <line x1="1" y1="7" x2="2.4" y2="7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-      <line x1="11.6" y1="7" x2="13" y2="7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-      <line x1="2.9" y1="2.9" x2="3.9" y2="3.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-      <line x1="10.1" y1="10.1" x2="11.1" y2="11.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-      <line x1="11.1" y1="2.9" x2="10.1" y2="3.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-      <line x1="3.9" y1="10.1" x2="2.9" y2="11.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-    </svg>`;
+    const logoMark = logoURL
+      ? `<img class="dp-logo-img" src="${logoURL}" width="22" height="22" alt="" aria-hidden="true">`
+      : logoFallback;
     const eyeOn  = `<svg width="13" height="10" viewBox="0 0 13 10"><ellipse cx="6.5" cy="5" rx="5.5" ry="4" stroke="currentColor" stroke-width="1.3" fill="none"/><circle cx="6.5" cy="5" r="1.8" fill="currentColor"/></svg>`;
     const eyeOff = `<svg width="13" height="11" viewBox="0 0 13 11"><line x1="1" y1="1" x2="12" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M3 7.5A5.5 4 0 0 0 10 7.5" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>`;
-    const gridSVG = `<svg width="12" height="12" viewBox="0 0 14 14"><line x1="0" y1="4.67" x2="14" y2="4.67" stroke="currentColor" stroke-width="1.2"/><line x1="0" y1="9.33" x2="14" y2="9.33" stroke="currentColor" stroke-width="1.2"/><line x1="4.67" y1="0" x2="4.67" y2="14" stroke="currentColor" stroke-width="1.2"/><line x1="9.33" y1="0" x2="9.33" y2="14" stroke="currentColor" stroke-width="1.2"/></svg>`;
+    const gridSVG = `<svg aria-hidden="true" width="12" height="12" viewBox="0 0 14 14"><line x1="0" y1="4.67" x2="14" y2="4.67" stroke="currentColor" stroke-width="1.2"/><line x1="0" y1="9.33" x2="14" y2="9.33" stroke="currentColor" stroke-width="1.2"/><line x1="4.67" y1="0" x2="4.67" y2="14" stroke="currentColor" stroke-width="1.2"/><line x1="9.33" y1="0" x2="9.33" y2="14" stroke="currentColor" stroke-width="1.2"/></svg>`;
 
-    const closeSVG = `<svg width="11" height="11" viewBox="0 0 11 11" fill="none"><line x1="1.5" y1="1.5" x2="9.5" y2="9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="9.5" y1="1.5" x2="1.5" y2="9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`;
-
-    return `<div class="dp-p" id="dpp" data-theme="${currentTheme}">
+    return `<div class="dp-p" id="dpp" data-theme="${currentTheme}" role="region" aria-label="DiffPixel">
       <!-- Header -->
       <div class="dp-header" id="dp-drag">
-        <div class="dp-logo">${logoSVG}<span class="dp-logo-tx">DiffPixel</span></div>
+        <div class="dp-logo">${logoMark}<span class="dp-logo-tx">DiffPixel</span></div>
         <div class="dp-hbtns">
           <div class="dp-settings">
           <select class="dp-lang" id="dp-lang" title="${t('languageTitle')}" aria-label="${t('languageTitle')}">
@@ -650,18 +813,17 @@
             <option value="en" ${langMode === 'en' ? 'selected' : ''}>${t('languageEnglish')}</option>
             <option value="ja" ${langMode === 'ja' ? 'selected' : ''}>${t('languageJapanese')}</option>
           </select>
-          <button class="dp-ibtn" id="dp-theme" title="${t(currentTheme === 'light' ? 'themeDark' : 'themeLight')}" aria-pressed="${currentTheme === 'light'}">${sunSVG}</button>
+          <button type="button" class="dp-ibtn" id="dp-theme" title="${t(currentTheme === 'light' ? 'themeDark' : 'themeLight')}" aria-pressed="false" aria-label="${t('toggleTheme')}">${themeIconSVG(currentTheme)}</button>
           </div>
           <div class="dp-overlay-actions" aria-label="${t('overlayLabel')}">
-          <label class="dp-tog" title="${t('toggleOverlay')}" aria-label="${t('toggleOverlay')}"><input type="checkbox" id="dp-en"/><span class="dp-track"><span class="dp-thumb"></span></span></label>
-          <button class="dp-ibtn" id="dp-col" title="Collapse" aria-label="Collapse"><span class="dp-chev">▲</span></button>
-          <button class="dp-ibtn" id="dp-close" title="Close panel" aria-label="Close panel">${closeSVG}</button>
+          <label class="dp-tog" title="${t('toggleOverlay')}" aria-label="${t('toggleOverlay')}"><input type="checkbox" id="dp-en" aria-label="${t('toggleOverlay')}"/><span class="dp-track"><span class="dp-thumb"></span></span></label>
+          <button type="button" class="dp-ibtn" id="dp-col" title="Collapse" aria-label="Collapse"><span class="dp-chev">▲</span></button>
           </div>
         </div>
       </div>
       <!-- Drop zone overlay -->
       <div class="dp-dropzone" id="dp-dropzone">
-        <svg width="24" height="24" viewBox="0 0 36 36" fill="none"><path d="M18 6v16M11 14l7-9 7 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 28h24" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <svg width="24" height="24" viewBox="0 0 36 36" fill="none" aria-hidden="true"><path d="M18 6v16M11 14l7-9 7 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 28h24" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         <span>${t('dropHint')}</span>
       </div>
       <!-- Body -->
@@ -670,49 +832,27 @@
         <div class="dp-sec">
           <div class="dp-shead">
             <span class="dp-slabel">${t('sectionLayers')}</span>
-            <label class="dp-addbtn" title="${t('addLayerTitle')}">+<input type="file" id="dp-file" accept="image/*" multiple hidden/></label>
+            <label class="dp-addbtn" id="dp-add" role="button" tabindex="0" title="${t('addLayerTitle')}" aria-label="${t('addLayerTitle')}">
+              <span class="dp-add-plus">+</span><span>${t('btnAddLayer')}</span>
+              <input type="file" id="dp-file" accept="image/*" multiple tabindex="-1" aria-label="${t('addLayerTitle')}"/>
+            </label>
           </div>
-          <div class="dp-ll" id="dp-ll">
+          <div class="dp-ll" id="dp-ll" role="listbox" aria-label="${t('sectionLayers')}">
             <div class="dp-empty" id="dp-empty">
-              <svg width="24" height="24" viewBox="0 0 32 32" fill="none" opacity=".35"><rect x="2" y="2" width="13" height="13" rx="1.5" stroke="var(--acc)" stroke-width="1.5"/><rect x="17" y="2" width="13" height="13" rx="1.5" stroke="var(--acc)" stroke-width="1.5" opacity=".5"/><rect x="2" y="17" width="13" height="13" rx="1.5" stroke="var(--acc)" stroke-width="1.5" opacity=".5"/><rect x="17" y="17" width="13" height="13" rx="1.5" stroke="var(--acc)" stroke-width="1.5"/></svg>
+              <svg width="24" height="24" viewBox="0 0 32 32" fill="none" opacity=".35" aria-hidden="true"><rect x="2" y="2" width="13" height="13" rx="1.5" stroke="var(--acc)" stroke-width="1.5"/><rect x="17" y="2" width="13" height="13" rx="1.5" stroke="var(--acc)" stroke-width="1.5" opacity=".5"/><rect x="2" y="17" width="13" height="13" rx="1.5" stroke="var(--acc)" stroke-width="1.5" opacity=".5"/><rect x="17" y="17" width="13" height="13" rx="1.5" stroke="var(--acc)" stroke-width="1.5"/></svg>
               <p>${t('emptyState')}</p>
             </div>
           </div>
         </div>
         <!-- Controls -->
         <div class="dp-sec" id="dp-ctrl">
-          <input type="text" id="dp-lname" class="dp-ni" placeholder="${t('layerNamePlaceholder')}" maxlength="32"/>
-          <div class="dp-row">
-            <span class="dp-cl">${t('labelOpacity')}</span>
-            <div class="dp-sw"><input type="range" id="dp-osl" class="dp-sl" min="0" max="100" step="1" value="50"/></div>
-            <div class="dp-nw"><input type="number" id="dp-onum" class="dp-num dp-onum-w" min="0" max="100" value="50"/><span class="dp-unit">%</span></div>
+          <div class="dp-row dp-name-row">
+            <span class="dp-cl">${t('labelLayerName')}</span>
+            <input type="text" id="dp-lname" class="dp-ni" placeholder="${t('layerNamePlaceholder')}" maxlength="32" aria-label="${t('labelLayerName')}"/>
           </div>
-          <div class="dp-row">
-            <span class="dp-cl">${t('labelX')}</span>
-            <button class="dp-sb" data-f="x" data-d="-1">◀</button>
-            <div class="dp-nw f1"><input type="number" id="dp-xi" class="dp-num fw" value="0" step="1"/><span class="dp-unit">px</span></div>
-            <button class="dp-sb" data-f="x" data-d="1">▶</button>
-          </div>
-          <div class="dp-row">
-            <span class="dp-cl">${t('labelY')}</span>
-            <button class="dp-sb" data-f="y" data-d="-1">◀</button>
-            <div class="dp-nw f1"><input type="number" id="dp-yi" class="dp-num fw" value="0" step="1"/><span class="dp-unit">px</span></div>
-            <button class="dp-sb" data-f="y" data-d="1">▶</button>
-          </div>
-          <div class="dp-row">
-            <span class="dp-cl">${t('labelScale')}</span>
-            <button class="dp-sb" data-f="scale" data-d="-1" title="Scale -0.001 (Shift: 0.01 / Alt: 0.0001)">◀</button>
-            <div class="dp-nw f1"><input type="text" id="dp-si" class="dp-num fw" value="1.00" inputmode="decimal" autocomplete="off"/><span class="dp-unit">x</span></div>
-            <button class="dp-sb" data-f="scale" data-d="1" title="Scale +0.001 (Shift: 0.01 / Alt: 0.0001)">▶</button>
-          </div>
-          <div class="dp-row dp-qa">
-            <button class="dp-qbtn" id="dp-reset">${t('btnReset')}</button>
-            <button class="dp-qbtn" id="dp-center">${t('btnCenter')}</button>
-            <button class="dp-qbtn" id="dp-fitw">${t('btnFitW')}</button>
-          </div>
-          <div class="dp-row">
+          <div class="dp-row dp-blend-row" id="dp-blend-row">
             <span class="dp-cl">${t('labelBlend')}</span>
-            <div class="dp-selw"><select id="dp-blend" class="dp-sel">
+            <div class="dp-selw"><select id="dp-blend" class="dp-sel" aria-label="${t('labelBlend')}">
               <option value="normal">${t('blendNormal')}</option>
               <option value="difference">${t('blendDifference')}</option>
               <option value="multiply">${t('blendMultiply')}</option>
@@ -722,27 +862,54 @@
               <option value="exclusion">${t('blendExclusion')}</option>
             </select></div>
           </div>
+          <div class="dp-row">
+            <span class="dp-cl">${t('labelOpacity')}</span>
+            <div class="dp-sw"><input type="range" id="dp-osl" class="dp-sl" min="0" max="100" step="1" value="50" aria-label="${t('labelOpacity')}"/></div>
+            <div class="dp-nw"><input type="number" id="dp-onum" class="dp-num dp-onum-w" min="0" max="100" value="50" aria-label="${t('labelOpacity')}"/><span class="dp-unit">%</span></div>
+          </div>
+          <div class="dp-row">
+            <span class="dp-cl">${t('labelX')}</span>
+            <button type="button" class="dp-sb" data-f="x" data-d="-1" aria-label="${t('labelX')} -1">◀</button>
+            <div class="dp-nw f1"><input type="number" id="dp-xi" class="dp-num fw" value="0" step="1" aria-label="${t('labelX')}"/><span class="dp-unit">px</span></div>
+            <button type="button" class="dp-sb" data-f="x" data-d="1" aria-label="${t('labelX')} +1">▶</button>
+          </div>
+          <div class="dp-row">
+            <span class="dp-cl">${t('labelY')}</span>
+            <button type="button" class="dp-sb" data-f="y" data-d="-1" aria-label="${t('labelY')} -1">◀</button>
+            <div class="dp-nw f1"><input type="number" id="dp-yi" class="dp-num fw" value="0" step="1" aria-label="${t('labelY')}"/><span class="dp-unit">px</span></div>
+            <button type="button" class="dp-sb" data-f="y" data-d="1" aria-label="${t('labelY')} +1">▶</button>
+          </div>
+          <div class="dp-row">
+            <span class="dp-cl">${t('labelScale')}</span>
+            <button type="button" class="dp-sb" data-f="scale" data-d="-1" title="Scale -0.1 (Shift: 0.01 / Alt: 0.001)" aria-label="${t('labelScale')} -0.1">◀</button>
+            <div class="dp-nw f1"><input type="text" id="dp-si" class="dp-num fw" value="1.00" inputmode="decimal" autocomplete="off" aria-label="${t('labelScale')}"/><span class="dp-unit">x</span></div>
+            <button type="button" class="dp-sb" data-f="scale" data-d="1" title="Scale +0.1 (Shift: 0.01 / Alt: 0.001)" aria-label="${t('labelScale')} +0.1">▶</button>
+          </div>
+          <div class="dp-row dp-qa">
+            <button type="button" class="dp-qbtn" id="dp-reset">${t('btnReset')}</button>
+            <button type="button" class="dp-qbtn" id="dp-center">${t('btnCenter')}</button>
+            <button type="button" class="dp-qbtn" id="dp-fitw">${t('btnFitW')}</button>
+          </div>
           <div class="dp-row dp-frow">
-            <button class="dp-fbtn" id="dp-inv">
-              <svg width="11" height="11" viewBox="0 0 13 13"><circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.4"/><path d="M6.5 1v11" stroke="currentColor" stroke-width="1.4"/><path d="M1 6.5h5.5" fill="currentColor"/></svg>
+            <button type="button" class="dp-fbtn" id="dp-inv" aria-pressed="false">
+              <svg width="11" height="11" viewBox="0 0 13 13" fill="none" aria-hidden="true"><circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M6.5 1v11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M1.7 6.5h4.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
               ${t('btnInvert')}
             </button>
-            <button class="dp-fbtn" id="dp-lock">
-              <svg width="10" height="11" viewBox="0 0 12 13"><rect x="1" y="5.5" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M3 5.5V3.5a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>
+            <button type="button" class="dp-fbtn" id="dp-lock" aria-pressed="false">
+              <svg width="10" height="11" viewBox="0 0 12 13" fill="none" aria-hidden="true"><rect x="1" y="5.5" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M3 5.5V3.5a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
               ${t('btnLock')}
             </button>
-            <button class="dp-fbtn dng" id="dp-del">
+            <button type="button" class="dp-fbtn dng" id="dp-del" title="${t('btnRemove')}" aria-label="${t('btnRemove')}">
               <svg width="10" height="10" viewBox="0 0 11 11"><line x1="1.5" y1="1.5" x2="9.5" y2="9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="9.5" y1="1.5" x2="1.5" y2="9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-              ${t('btnRemove')}
             </button>
           </div>
         </div>
         <!-- Tools -->
         <div class="dp-sec">
           <div class="dp-trow">
-            <button class="dp-tbtn" id="dp-grid">${gridSVG} ${t('btnGrid')}</button>
+            <button type="button" class="dp-tbtn" id="dp-grid" aria-pressed="false">${gridSVG} <span>${t('btnGrid')}</span></button>
             <div class="dp-nw" id="dp-gsize">
-              <input type="number" id="dp-gnum" class="dp-num dp-gnum-w" min="2" max="128" step="1" value="8"/>
+              <input type="number" id="dp-gnum" class="dp-num dp-gnum-w" min="2" max="128" step="1" value="8" aria-label="${t('gridSizeLabel')}"/>
               <span class="dp-unit">px</span>
             </div>
           </div>
@@ -758,6 +925,7 @@
       this._px = 0; this._py = 0; this._dragging = false;
       this._ox = 0; this._oy = 0; this._collapsed = false;
       this._visible = true;
+      this._onPaste = e => this._handlePaste(e);
     }
 
     show() {
@@ -796,6 +964,7 @@
       this._setPos(this._px, this._py);
 
       this._bindEvents();
+      document.addEventListener('paste', this._onPaste, { capture: true });
       this.renderAll();
     }
 
@@ -814,7 +983,8 @@
       if (btn) {
         btn.title = t(currentTheme === 'light' ? 'themeDark' : 'themeLight');
         btn.setAttribute('aria-label', btn.title);
-        btn.setAttribute('aria-pressed', String(currentTheme === 'light'));
+        btn.setAttribute('aria-pressed', 'false');
+        btn.innerHTML = themeIconSVG(currentTheme);
       }
     }
 
@@ -848,14 +1018,26 @@
       if (!list || !empty) return;
       list.querySelectorAll('.dp-li').forEach(el => el.remove());
       empty.style.display = layerMeta.length === 0 ? '' : 'none';
+      empty.setAttribute('aria-hidden', String(layerMeta.length !== 0));
 
       layerMeta.forEach(meta => {
         const item = document.createElement('div');
         item.className = 'dp-li' + (meta.id === activeLayerId ? ' active' : '');
+        item.dataset.id = meta.id;
+        item.tabIndex = 0;
+        item.setAttribute('role', 'option');
+        item.setAttribute('aria-selected', String(meta.id === activeLayerId));
+        item.setAttribute('aria-label', `${meta.name}, ${Math.round(meta.opacity * 100)}%, ${meta.x}px ${meta.y}px, x${formatScale(meta.scale)}`);
 
         const th = document.createElement('div'); th.className = 'dp-th';
         const img = imageData.get(meta.id);
-        if (img) { const i = document.createElement('img'); i.src = img; th.appendChild(i); }
+        if (img) {
+          const i = document.createElement('img');
+          i.src = img;
+          i.alt = '';
+          i.setAttribute('aria-hidden', 'true');
+          th.appendChild(i);
+        }
 
         const info = document.createElement('div'); info.className = 'dp-linfo';
         const nameDiv = document.createElement('div'); nameDiv.className = 'dp-lname';
@@ -865,10 +1047,14 @@
         info.appendChild(nameDiv); info.appendChild(metaDiv);
 
         const vis = document.createElement('button');
+        vis.type = 'button';
         vis.className = 'dp-visbtn' + (!meta.visible ? ' hid' : '');
+        vis.title = t(meta.visible ? 'visHide' : 'visShow');
+        vis.setAttribute('aria-label', t(meta.visible ? 'visHide' : 'visShow'));
+        vis.setAttribute('aria-pressed', String(!!meta.visible));
         vis.innerHTML = meta.visible
-          ? `<svg width="13" height="10" viewBox="0 0 13 10"><ellipse cx="6.5" cy="5" rx="5.5" ry="4" stroke="currentColor" stroke-width="1.3" fill="none"/><circle cx="6.5" cy="5" r="1.8" fill="currentColor"/></svg>`
-          : `<svg width="13" height="11" viewBox="0 0 13 11"><line x1="1" y1="1" x2="12" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M3 7.5A5.5 4 0 0 0 10 7.5" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>`;
+          ? `<svg width="13" height="10" viewBox="0 0 13 10" aria-hidden="true"><ellipse cx="6.5" cy="5" rx="5.5" ry="4" stroke="currentColor" stroke-width="1.3" fill="none"/><circle cx="6.5" cy="5" r="1.8" fill="currentColor"/></svg>`
+          : `<svg width="13" height="11" viewBox="0 0 13 11" aria-hidden="true"><line x1="1" y1="1" x2="12" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M3 7.5A5.5 4 0 0 0 10 7.5" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>`;
         vis.addEventListener('click', e => {
           e.stopPropagation();
           meta.visible = !meta.visible;
@@ -878,6 +1064,11 @@
 
         item.appendChild(th); item.appendChild(info); item.appendChild(vis);
         item.addEventListener('click', () => {
+          activeLayerId = meta.id; this.renderLayers(); this.renderControls(); debounceSave();
+        });
+        item.addEventListener('keydown', e => {
+          if (e.key !== 'Enter' && e.key !== ' ') return;
+          e.preventDefault();
           activeLayerId = meta.id; this.renderLayers(); this.renderControls(); debounceSave();
         });
         list.appendChild(item);
@@ -899,8 +1090,13 @@
       const yi = g('dp-yi'); if (yi) yi.value = meta.y;
       const si = g('dp-si'); if (si && si !== this.shadow.activeElement) si.value = formatScale(meta.scale);
       const bl = g('dp-blend'); if (bl) bl.value = meta.blendMode;
-      g('dp-inv')?.classList.toggle('on',  !!meta.invert);
-      g('dp-lock')?.classList.toggle('on', !!meta.locked);
+      g('dp-blend-row')?.classList.toggle('is-active', meta.blendMode !== 'normal');
+      const inv = g('dp-inv');
+      const lock = g('dp-lock');
+      inv?.classList.toggle('on', !!meta.invert);
+      inv?.setAttribute('aria-pressed', String(!!meta.invert));
+      lock?.classList.toggle('on', !!meta.locked);
+      lock?.setAttribute('aria-pressed', String(!!meta.locked));
     }
 
     renderGrid() {
@@ -908,7 +1104,8 @@
       const wrap = this.shadow.getElementById('dp-gsize');
       const inp  = this.shadow.getElementById('dp-gnum');
       btn?.classList.toggle('on', gridConfig.enabled);
-      if (wrap) wrap.style.display = gridConfig.enabled ? 'flex' : 'none';
+      btn?.setAttribute('aria-pressed', String(!!gridConfig.enabled));
+      if (wrap) wrap.style.display = 'flex';
       if (inp)  inp.value = gridConfig.size;
     }
 
@@ -928,7 +1125,7 @@
           this._dragging = false;
           document.removeEventListener('mousemove', onMove, { capture: true });
           document.removeEventListener('mouseup',   onUp,   { capture: true });
-          chrome.storage.local.set({ [K.PANEL_POS]: { x: this._px, y: this._py } });
+          queueStorageSet({ [K.PANEL_POS]: { x: this._px, y: this._py } });
         };
         document.addEventListener('mousemove', onMove, { capture: true, passive: true });
         document.addEventListener('mouseup',   onUp,   { capture: true });
@@ -939,9 +1136,6 @@
         this._collapsed = !this._collapsed;
         this.root.classList.toggle('collapsed', this._collapsed);
       });
-
-      /* Close panel */
-      g('dp-close')?.addEventListener('click', () => this.hide());
 
       /* Drop zone on the panel itself */
       const dropZone = g('dp-dropzone');
@@ -967,7 +1161,7 @@
       g('dp-lang')?.addEventListener('change', e => {
         langMode = normalizeLang(e.target.value);
         updateActiveLang();
-        chrome.storage.local.set({ [K.LANG]: langMode });
+        queueStorageSet({ [K.LANG]: langMode });
         this.refreshLanguage();
       });
 
@@ -975,14 +1169,21 @@
       g('dp-theme')?.addEventListener('click', () => {
         const next = currentTheme === 'dark' ? 'light' : 'dark';
         this.applyTheme(next);
-        chrome.storage.local.set({ [K.THEME]: next });
-        try { chrome.runtime.sendMessage({ type: 'THEME_CHANGED', theme: next }); } catch {}
+        queueStorageSet({ [K.THEME]: next });
+        if (canUseExtensionApi()) {
+          try { chrome.runtime.sendMessage({ type: 'THEME_CHANGED', theme: next }); } catch {}
+        }
       });
 
       /* Enable */
       g('dp-en')?.addEventListener('change', e => { setEnabled(e.target.checked); debounceSave(); });
 
       /* File upload (multiple) */
+      g('dp-add')?.addEventListener('keydown', e => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        g('dp-file')?.click();
+      });
       g('dp-file')?.addEventListener('change', e => {
         const files = [...(e.target.files ?? [])].filter(f => f.type.startsWith('image/'));
         if (files.length) this._addLayers(files);
@@ -990,6 +1191,30 @@
       });
 
       /* Opacity */
+      const arrowKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+      const nudgeActiveLayer = e => {
+        const meta = getActiveMeta();
+        if (!meta || meta.locked) return;
+        const step = e.shiftKey ? 10 : 1;
+        let moved = false;
+        if (e.key === 'ArrowLeft')  { meta.x -= step; moved = true; }
+        if (e.key === 'ArrowRight') { meta.x += step; moved = true; }
+        if (e.key === 'ArrowUp')    { meta.y -= step; moved = true; }
+        if (e.key === 'ArrowDown')  { meta.y += step; moved = true; }
+        if (!moved) return;
+        layerDOM.get(meta.id)?.applyStyle(meta);
+        this.renderControls(); this.renderLayers(); debounceSave();
+      };
+      const blurAndNudgeOnArrow = el => {
+        el?.addEventListener('keydown', e => {
+          if (!arrowKeys.includes(e.key)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          e.target.blur();
+          nudgeActiveLayer(e);
+        });
+      };
+
       g('dp-osl')?.addEventListener('input', e => {
         const meta = getActiveMeta(); if (!meta) return;
         const v = +e.target.value; meta.opacity = v / 100;
@@ -1002,6 +1227,8 @@
         const os = g('dp-osl'); if (os) os.value = v;
         layerDOM.get(meta.id)?.applyStyle(meta); this.renderLayers(); debounceSave();
       });
+      blurAndNudgeOnArrow(g('dp-osl'));
+      blurAndNudgeOnArrow(g('dp-onum'));
 
       /* X / Y / Scale inputs */
       const bindNum = (id, field, parse = parseInt) => {
@@ -1017,18 +1244,9 @@
       bindNum('dp-xi', 'x');
       bindNum('dp-yi', 'y');
       bindNum('dp-si', 'scale', parseFloat);
-
-      g('dp-si')?.addEventListener('keydown', e => {
-        if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-        const meta = getActiveMeta(); if (!meta) return;
-        e.preventDefault();
-        const dir = e.key === 'ArrowUp' ? 1 : -1;
-        const typed = Number(e.target.value);
-        const base = Number.isFinite(typed) ? typed : meta.scale;
-        meta.scale = normalizeScale(base + dir * SCALE_KEY_STEP, meta.scale);
-        e.target.value = formatScale(meta.scale);
-        layerDOM.get(meta.id)?.applyStyle(meta); this.renderLayers(); debounceSave();
-      });
+      blurAndNudgeOnArrow(g('dp-xi'));
+      blurAndNudgeOnArrow(g('dp-yi'));
+      blurAndNudgeOnArrow(g('dp-si'));
 
       g('dp-si')?.addEventListener('blur', e => {
         const meta = getActiveMeta(); if (!meta) return;
@@ -1051,19 +1269,19 @@
       /* Quick actions */
       g('dp-reset')?.addEventListener('click', () => {
         const meta = getActiveMeta(); if (!meta) return;
-        meta.x = 0; meta.y = 0;
+        meta.x = 0; meta.y = 0; meta.scale = 1;
         layerDOM.get(meta.id)?.applyStyle(meta); this.renderControls(); this.renderLayers(); debounceSave();
       });
       g('dp-center')?.addEventListener('click', () => {
         const meta = getActiveMeta(), layer = meta ? layerDOM.get(meta.id) : null; if (!meta || !layer) return;
-        meta.x = Math.round((window.innerWidth  - (layer.img?.naturalWidth  ?? 0) * meta.scale) / 2);
-        meta.y = Math.round((window.innerHeight - (layer.img?.naturalHeight ?? 0) * meta.scale) / 2);
+        meta.x = Math.round(pageLeft() + (window.innerWidth  - (layer.img?.naturalWidth  ?? 0) * meta.scale) / 2);
+        meta.y = Math.round(pageTop()  + (window.innerHeight - (layer.img?.naturalHeight ?? 0) * meta.scale) / 2);
         layerDOM.get(meta.id)?.applyStyle(meta); this.renderControls(); this.renderLayers(); debounceSave();
       });
       g('dp-fitw')?.addEventListener('click', () => {
         const meta = getActiveMeta(), layer = meta ? layerDOM.get(meta.id) : null; if (!meta || !layer) return;
         const nw = layer.img?.naturalWidth; if (!nw) return;
-        meta.scale = normalizeScale(window.innerWidth / nw, meta.scale); meta.x = 0;
+        meta.scale = normalizeScale(window.innerWidth / nw, meta.scale); meta.x = pageLeft();
         layerDOM.get(meta.id)?.applyStyle(meta); this.renderControls(); this.renderLayers(); debounceSave();
       });
 
@@ -1076,21 +1294,36 @@
       });
 
       /* Blend */
-      g('dp-blend')?.addEventListener('change', e => {
+      const blendSelect = g('dp-blend');
+      blendSelect?.addEventListener('keydown', e => {
+        if (!arrowKeys.includes(e.key)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.target.blur();
+        nudgeActiveLayer(e);
+      });
+      blendSelect?.addEventListener('change', e => {
         const meta = getActiveMeta(); if (!meta) return;
-        meta.blendMode = e.target.value; layerDOM.get(meta.id)?.applyStyle(meta); debounceSave();
+        meta.blendMode = e.target.value;
+        this.shadow.getElementById('dp-blend-row')?.classList.toggle('is-active', meta.blendMode !== 'normal');
+        layerDOM.get(meta.id)?.applyStyle(meta); debounceSave();
+        e.target.blur();
       });
 
       /* Flag buttons */
       g('dp-inv')?.addEventListener('click', () => {
         const meta = getActiveMeta(); if (!meta) return;
         meta.invert = !meta.invert; layerDOM.get(meta.id)?.applyStyle(meta);
-        g('dp-inv').classList.toggle('on', meta.invert); debounceSave();
+        g('dp-inv').classList.toggle('on', meta.invert);
+        g('dp-inv').setAttribute('aria-pressed', String(!!meta.invert));
+        debounceSave();
       });
       g('dp-lock')?.addEventListener('click', () => {
         const meta = getActiveMeta(); if (!meta) return;
         meta.locked = !meta.locked; layerDOM.get(meta.id)?.applyStyle(meta);
-        g('dp-lock').classList.toggle('on', meta.locked); debounceSave();
+        g('dp-lock').classList.toggle('on', meta.locked);
+        g('dp-lock').setAttribute('aria-pressed', String(!!meta.locked));
+        debounceSave();
       });
       g('dp-del')?.addEventListener('click', () => {
         const meta = getActiveMeta(); if (!meta) return;
@@ -1112,6 +1345,35 @@
     }
 
     /* ── Add layers from one or more files ── */
+    _clipboardImageFiles(event) {
+      const clipboard = event.clipboardData;
+      if (!clipboard) return [];
+      const items = [...(clipboard.items ?? [])];
+      const sourceFiles = items.length
+        ? items.filter(item => item.kind === 'file' && item.type.startsWith('image/')).map(item => item.getAsFile()).filter(Boolean)
+        : [...(clipboard.files ?? [])].filter(file => file.type.startsWith('image/'));
+
+      return sourceFiles.map((file, index) => {
+        const ext = IMAGE_EXT_BY_MIME[file.type] ?? 'png';
+        const stamp = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '').replace(/:/g, '.');
+        const name = `${t('clipboardLayerName')} ${stamp}${index ? ` ${index + 1}` : ''}.${ext}`;
+        try {
+          return new File([file], name, { type: file.type, lastModified: file.lastModified || Date.now() });
+        } catch {
+          return file;
+        }
+      });
+    }
+
+    _handlePaste(event) {
+      if (!this._visible || event.defaultPrevented || isEditablePasteTarget(event)) return;
+      const files = this._clipboardImageFiles(event).filter(file => file.size <= MAX_IMAGE_BYTES);
+      if (!files.length) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this._addLayers(files);
+    }
+
     _addLayers(files) {
       [...files].forEach(file => {
         if (!file.type.startsWith('image/') || file.size > MAX_IMAGE_BYTES) return;
@@ -1120,7 +1382,7 @@
           const data = e.target.result;
           const id   = genId();
           const name = (file.name.replace(/\.[^.]+$/, '') || t('layerDefault')).slice(0, 32);
-          const meta = { id, name, opacity: .5, x: 0, y: 0, scale: 1, blendMode: 'normal', visible: true, invert: false, locked: false };
+          const meta = { id, name, opacity: .5, x: Math.round(pageLeft()), y: Math.round(pageTop()), scale: 1, blendMode: 'normal', visible: true, invert: false, locked: false };
           imageData.set(id, data);
           layerMeta.push(meta);
           activeLayerId = id;
@@ -1132,20 +1394,26 @@
       });
     }
 
-    destroy() { this.host?.remove(); }
+    destroy() {
+      document.removeEventListener('paste', this._onPaste, { capture: true });
+      this.host?.remove();
+    }
   }
 
   /* ── Panel: on-demand creation ──────────── */
   async function createAndShowPanel() {
     if (panel) { panel.show(); return; }
-    const res = await chrome.storage.local.get(K.PANEL_POS);
+    const res = await safeStorageGet(K.PANEL_POS);
     panel = new DiffPixelPanel();
     panel.mount(res[K.PANEL_POS] ?? null);
   }
 
   /* ── chrome.runtime messages (from popup) ── */
-  chrome.runtime.onMessage.addListener((msg, sender, reply) => {
-    if (!sender || sender.id !== chrome.runtime.id) return;
+  if (canUseExtensionApi()) {
+    try {
+      chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+    const runtimeId = getRuntimeId();
+    if (!runtimeId || !sender || sender.id !== runtimeId) return;
     switch (msg.type) {
       case 'PING': reply({ ok: true }); break;
 
@@ -1229,10 +1497,16 @@
       default: reply({ error: 'unknown' });
     }
     return true;
-  });
+      });
+    } catch (error) {
+      if (!isExtensionContextInvalidError(error)) throw error;
+    }
+  }
 
   /* ── Cross-tab sync via storage.onChanged ── */
-  chrome.storage.onChanged.addListener((changes, area) => {
+  if (canUseExtensionApi()) {
+    try {
+      chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
 
     if (changes[K.IMAGES]) {
@@ -1275,7 +1549,11 @@
       updateActiveLang();
       panel?.refreshLanguage();
     }
-  });
+      });
+    } catch (error) {
+      if (!isExtensionContextInvalidError(error)) throw error;
+    }
+  }
 
   /* ── Keyboard shortcuts ──────────────────── */
   document.addEventListener('keydown', e => {

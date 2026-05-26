@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=1280"/>
+<title>DiffPixel – Slide 4 JA: Controls</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 1280px; height: 800px; overflow: hidden;
+    background: #0d0d16;
+    font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Meiryo', Arial, sans-serif;
+    color: #e8eaf0; position: relative;
+  }
+  .bg-lines { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,212,255,0.025) 39px, rgba(0,212,255,0.025) 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,212,255,0.025) 39px, rgba(0,212,255,0.025) 40px); }
+  .bg-glow { position: absolute; width: 600px; height: 600px; background: radial-gradient(ellipse, rgba(0,212,255,0.055) 0%, transparent 68%); top: 50%; left: 55%; transform: translate(-50%,-50%); }
+  .canvas { position: relative; z-index: 1; width: 1280px; height: 800px; display: flex; align-items: center; }
+
+  .left { width: 460px; padding: 0 0 0 80px; flex-shrink: 0; }
+  .tag { display: inline-flex; align-items: center; gap: 7px; background: rgba(0,212,255,0.08); border: 1px solid rgba(0,212,255,0.2); border-radius: 100px; padding: 5px 14px; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; color: #00d4ff; margin-bottom: 26px; }
+  h1 { font-size: 52px; font-weight: 800; line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 20px; }
+  h1 .accent { color: #00d4ff; }
+  .sub { font-size: 15px; color: #9098b8; line-height: 1.7; max-width: 350px; margin-bottom: 32px; }
+  .sub strong { color: #a8aec0; font-weight: 500; }
+
+  .feature-list { display: flex; flex-direction: column; gap: 14px; }
+  .fl-item { display: flex; align-items: center; gap: 12px; }
+  .fl-dot { width: 7px; height: 7px; border-radius: 50%; background: #00d4ff; box-shadow: 0 0 6px rgba(0,212,255,0.5); flex-shrink: 0; }
+  .fl-text { font-size: 13px; color: #8890a4; line-height: 1.4; }
+  .fl-text strong { color: #c8ccd8; font-weight: 600; }
+
+  .right { flex: 1; height: 800px; display: flex; align-items: center; justify-content: center; position: relative; }
+
+  .ctrl-panel { width: 360px; background: #0d0d16; border: 1px solid rgba(0,212,255,0.2); border-radius: 10px; box-shadow: 0 40px 100px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,212,255,0.05), 0 0 60px rgba(0,212,255,0.07); overflow: hidden; font-family: 'Hiragino Sans', 'Yu Gothic UI', -apple-system, sans-serif; }
+
+  .cp-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 13px; background: #161622; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .cp-logo { display: flex; align-items: center; gap: 7px; }
+  .cp-logo-text { font-size: 12px; font-weight: 600; color: #e8eaf0; letter-spacing: -0.3px; }
+  .cp-status { display: flex; align-items: center; gap: 5px; }
+  .cp-dot { width: 6px; height: 6px; border-radius: 50%; background: #00e5a0; box-shadow: 0 0 5px rgba(0,229,160,0.5); }
+  .cp-dot-text { font-size: 9px; color: #50566a; }
+
+  .cp-sec { border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .cp-sec-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 13px 5px; }
+  .cp-sec-label { font-size: 9px; font-weight: 700; letter-spacing: 0.04em; color: #50566a; }
+  .cp-name-input { flex: 1; margin-left: 10px; height: 20px; background: #252538; border: 1px solid rgba(255,255,255,0.07); border-radius: 4px; display: flex; align-items: center; padding: 0 8px; font-size: 9px; color: #e8eaf0; font-weight: 500; }
+
+  .cp-body { padding: 6px 13px 10px; }
+  .cp-row { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
+  .cp-label { font-size: 9px; color: #8890a4; width: 44px; flex-shrink: 0; }
+  .cp-slider-wrap { flex: 1; height: 4px; background: #252538; border-radius: 2px; position: relative; }
+  .cp-slider-fill { position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, #0055a0, #00d4ff); border-radius: 2px; }
+  .cp-slider-thumb { position: absolute; top: 50%; transform: translate(-50%,-50%); width: 10px; height: 10px; border-radius: 50%; background: #00d4ff; border: 2px solid #0d0d16; box-shadow: 0 0 6px rgba(0,212,255,0.5); }
+  .cp-num { width: 36px; height: 20px; background: #252538; border: 1px solid rgba(0,212,255,0.2); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #00d4ff; font-family: monospace; font-weight: 600; }
+  .cp-num-plain { width: 36px; height: 20px; background: #252538; border: 1px solid rgba(255,255,255,0.07); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #e8eaf0; font-family: monospace; }
+  .cp-unit { font-size: 9px; color: #50566a; }
+
+  .cp-pos-row { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
+  .cp-pos-label { font-size: 9px; color: #8890a4; width: 44px; flex-shrink: 0; }
+  .cp-step { width: 18px; height: 20px; background: #1e1e2e; border: 1px solid rgba(255,255,255,0.06); border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #50566a; flex-shrink: 0; }
+  .cp-pos-num { flex: 1; height: 20px; background: #252538; border: 1px solid rgba(255,255,255,0.07); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #e8eaf0; font-family: monospace; }
+  .cp-pos-num.accent { border-color: rgba(0,212,255,0.25); color: #00d4ff; }
+
+  .cp-qa { display: flex; gap: 5px; margin: 8px 0 5px; }
+  .cp-qa-btn { flex: 1; height: 24px; background: #1e1e2e; border: 1px solid rgba(255,255,255,0.07); border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 500; color: #8890a4; }
+
+  .cp-blend-row { display: flex; align-items: center; gap: 7px; margin-top: 5px; }
+  .cp-blend-label { font-size: 9px; color: #8890a4; width: 44px; flex-shrink: 0; }
+  .cp-blend-sel { flex: 1; height: 22px; background: #252538; border: 1px solid rgba(255,255,255,0.07); border-radius: 4px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; font-size: 10px; color: #e8eaf0; }
+  .cp-blend-arrow { color: #50566a; font-size: 8px; }
+
+  .cp-flags { display: flex; gap: 5px; margin-top: 7px; }
+  .cp-flag { flex: 1; height: 24px; background: #1e1e2e; border: 1px solid rgba(255,255,255,0.06); border-radius: 5px; display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 9px; color: #8890a4; }
+  .cp-flag-danger { background: rgba(255,77,106,0.05); border-color: rgba(255,77,106,0.15); color: #ff4d6a; }
+
+  .ruler-h { position: absolute; height: 1px; background: linear-gradient(90deg, transparent, rgba(0,212,255,0.4) 20%, rgba(0,212,255,0.4) 80%, transparent); }
+  .ruler-v { position: absolute; width: 1px; background: linear-gradient(180deg, transparent, rgba(0,212,255,0.4) 20%, rgba(0,212,255,0.4) 80%, transparent); }
+</style>
+</head>
+<body>
+  <div class="bg-lines"></div>
+  <div class="bg-glow"></div>
+  <div class="canvas">
+    <div class="left">
+      <div class="tag">精密な調整</div>
+      <h1>ピクセル単位で<br><span class="accent">調整できる。</span></h1>
+      <p class="sub">
+        不透明度・位置・スケール — すべての操作は
+        オーバーレイにリアルタイムで反映。X / Y は
+        <strong>キーボード矢印キー</strong>にも対応。
+      </p>
+      <div class="feature-list">
+        <div class="fl-item"><div class="fl-dot"></div><div class="fl-text"><strong>不透明度 0〜100%</strong> — スライダーまたは直接入力</div></div>
+        <div class="fl-item"><div class="fl-dot"></div><div class="fl-text"><strong>X / Y オフセット</strong> — ボタンまたはキーボード矢印キー（Shift = 10px）</div></div>
+        <div class="fl-item"><div class="fl-dot"></div><div class="fl-text"><strong>スケール</strong> — 0.001 単位（Shift: 0.01 / Alt: 0.0001）</div></div>
+        <div class="fl-item"><div class="fl-dot"></div><div class="fl-text"><strong>リセット / 中央 / 幅に合わせる</strong> — ワンクリックで即時適用</div></div>
+        <div class="fl-item"><div class="fl-dot"></div><div class="fl-text"><strong>オーバーレイ上でドラッグ</strong> — ページ上で直接つかんで移動</div></div>
+      </div>
+    </div>
+    <div class="right">
+      <div class="ruler-h" style="top:280px; left:120px; width:200px; opacity:0.5"></div>
+      <div class="ruler-v" style="left:340px; top:180px; height:180px; opacity:0.5"></div>
+
+      <div class="ctrl-panel">
+        <div class="cp-header">
+          <div class="cp-logo">
+            <svg width="16" height="16" viewBox="0 0 22 22" fill="none"><rect x="1" y="1" width="9" height="9" rx="2" fill="#00d4ff"/><rect x="12" y="1" width="9" height="9" rx="2" fill="#00d4ff"/><rect x="1" y="12" width="9" height="9" rx="2" fill="#00d4ff"/><rect x="12" y="12" width="9" height="9" rx="2" fill="#00d4ff"/></svg>
+            <span class="cp-logo-text">DiffPixel</span>
+          </div>
+          <div class="cp-status"><span class="cp-dot"></span><span class="cp-dot-text">接続済み</span></div>
+        </div>
+
+        <div class="cp-sec">
+          <div class="cp-sec-head">
+            <span class="cp-sec-label">調整</span>
+            <div class="cp-name-input">Design_v2.png</div>
+          </div>
+          <div class="cp-body">
+            <div class="cp-row">
+              <span class="cp-label">不透明度</span>
+              <div class="cp-slider-wrap">
+                <div class="cp-slider-fill" style="width:50%"></div>
+                <div class="cp-slider-thumb" style="left:50%"></div>
+              </div>
+              <div class="cp-num">50</div>
+              <span class="cp-unit">%</span>
+            </div>
+            <div class="cp-pos-row">
+              <span class="cp-pos-label">X</span>
+              <div class="cp-step">◀</div>
+              <div class="cp-pos-num accent">−12</div>
+              <div class="cp-step">▶</div>
+              <span class="cp-unit" style="margin-left:3px">px</span>
+            </div>
+            <div class="cp-pos-row">
+              <span class="cp-pos-label">Y</span>
+              <div class="cp-step">◀</div>
+              <div class="cp-pos-num">0</div>
+              <div class="cp-step">▶</div>
+              <span class="cp-unit" style="margin-left:3px">px</span>
+            </div>
+            <div class="cp-pos-row">
+              <span class="cp-pos-label">スケール</span>
+              <div class="cp-step">◀</div>
+              <div class="cp-pos-num">1.00</div>
+              <div class="cp-step">▶</div>
+              <span class="cp-unit" style="margin-left:3px">x</span>
+            </div>
+            <div class="cp-qa">
+              <div class="cp-qa-btn">リセット</div>
+              <div class="cp-qa-btn">中央</div>
+              <div class="cp-qa-btn" style="font-size:8px">幅に合わせる</div>
+            </div>
+            <div class="cp-blend-row">
+              <span class="cp-blend-label">合成</span>
+              <div class="cp-blend-sel"><span>差の絶対値</span><span class="cp-blend-arrow">▼</span></div>
+            </div>
+            <div class="cp-flags">
+              <div class="cp-flag">
+                <svg width="11" height="11" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.4"/><path d="M6.5 1v11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M1.7 6.5h4.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+                反転
+              </div>
+              <div class="cp-flag">
+                <svg width="10" height="11" viewBox="0 0 12 13" fill="none"><rect x="1" y="5.5" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M3 5.5V3.5a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>
+                固定
+              </div>
+              <div class="cp-flag cp-flag-danger">
+                <svg width="9" height="9" viewBox="0 0 11 11" fill="none"><line x1="1.5" y1="1.5" x2="9.5" y2="9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="9.5" y1="1.5" x2="1.5" y2="9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                削除
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding:7px 13px 9px">
+          <div style="font-size:9px; font-weight:700; letter-spacing:0.04em; color:#50566a; margin-bottom:7px">ツール</div>
+          <div style="display:flex; align-items:center; gap:8px">
+            <div style="height:24px; padding:0 10px; background:#252538; border:1px solid rgba(255,255,255,0.07); border-radius:5px; display:flex; align-items:center; gap:5px; font-size:10px; color:#8890a4">
+              <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><line x1="0" y1="4.67" x2="14" y2="4.67" stroke="currentColor" stroke-width="1.2" opacity=".8"/><line x1="0" y1="9.33" x2="14" y2="9.33" stroke="currentColor" stroke-width="1.2" opacity=".8"/><line x1="4.67" y1="0" x2="4.67" y2="14" stroke="currentColor" stroke-width="1.2" opacity=".8"/><line x1="9.33" y1="0" x2="9.33" y2="14" stroke="currentColor" stroke-width="1.2" opacity=".8"/></svg>
+              グリッド
+            </div>
+            <div style="width:36px;height:24px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-family:monospace;color:#e8eaf0">8</div>
+            <span style="font-size:9px;color:#50566a">px</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="position:absolute; left:108px; top:320px; text-align:right;">
+        <div style="font-size:11px; font-weight:600; color:#00d4ff">不透明度スライダー</div>
+        <div style="font-size:10px; color:#50566a; margin-top:2px">0 〜 100%</div>
+      </div>
+      <div style="position:absolute; right:100px; top:360px; text-align:left;">
+        <div style="font-size:11px; font-weight:600; color:#00d4ff">X / Y オフセット</div>
+        <div style="font-size:10px; color:#50566a; margin-top:2px">矢印キー対応</div>
+      </div>
+      <div style="position:absolute; left:110px; bottom:220px; text-align:right;">
+        <div style="font-size:11px; font-weight:600; color:#00d4ff">クイックアクション</div>
+        <div style="font-size:10px; color:#50566a; margin-top:2px">リセット · 中央 · 幅に合わせる</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

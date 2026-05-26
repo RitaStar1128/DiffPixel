@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=1280"/>
+<title>DiffPixel – Slide 2: Layers</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 1280px; height: 800px; overflow: hidden;
+    background: #0d0d16;
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    color: #e8eaf0;
+    position: relative;
+  }
+
+  /* BG */
+  .bg-dots {
+    position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(0,212,255,0.06) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  .bg-glow {
+    position: absolute;
+    width: 700px; height: 500px;
+    background: radial-gradient(ellipse at center, rgba(0,212,255,0.06) 0%, transparent 65%);
+    top: 50%; left: 50%; transform: translate(-50%,-50%);
+  }
+
+  .canvas {
+    position: relative; z-index: 1;
+    width: 1280px; height: 800px;
+    display: flex; align-items: center;
+  }
+
+  /* Left panel */
+  .left {
+    width: 480px; padding: 0 0 0 80px; flex-shrink: 0;
+  }
+  .tag {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 100px;
+    padding: 5px 14px; font-size: 10px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase; color: #00d4ff;
+    margin-bottom: 26px;
+  }
+  h1 {
+    font-size: 58px; font-weight: 800; line-height: 1.0;
+    letter-spacing: -0.04em; margin-bottom: 20px;
+  }
+  h1 .accent { color: #00d4ff; }
+  .sub {
+    font-size: 15px; color: #9098b8; line-height: 1.65;
+    max-width: 360px; margin-bottom: 36px;
+  }
+  .sub strong { color: #a8aec0; font-weight: 500; }
+
+  .features {
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .feat {
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+  .feat-icon {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.18);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .feat-text { font-size: 12px; color: #8890a4; line-height: 1.5; }
+  .feat-text strong { color: #c8ccd8; font-weight: 600; display: block; margin-bottom: 1px; }
+
+  /* Right: Layers visual */
+  .right {
+    flex: 1; height: 800px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+
+  /* Stacked layer cards */
+  .stack-wrap {
+    position: relative;
+    width: 340px; height: 380px;
+  }
+
+  /* Ghost cards behind */
+  .ghost-card {
+    position: absolute;
+    width: 360px;
+    background: #161622;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .ghost-card-header {
+    height: 8px;
+    background: #1e1e2e;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .ghost-card-body { padding: 10px 14px; }
+  .ghost-layer-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 8px; border-radius: 4px; margin-bottom: 4px;
+    background: rgba(255,255,255,0.02);
+  }
+  .ghost-thumb { width: 24px; height: 18px; border-radius: 2px; }
+  .ghost-line { height: 6px; background: rgba(255,255,255,0.06); border-radius: 2px; flex: 1; }
+
+  /* Main popup card */
+  .popup-card {
+    position: absolute;
+    left: 0; top: 0;
+    width: 360px;
+    background: #0d0d16;
+    border: 1px solid rgba(0,212,255,0.22);
+    border-radius: 10px;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,212,255,0.06), 0 0 50px rgba(0,212,255,0.1);
+    overflow: hidden;
+    font-size: 10px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  }
+
+  .pc-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 13px;
+    background: #161622;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .pc-logo { display: flex; align-items: center; gap: 7px; }
+  .pc-logo-text { font-size: 12px; font-weight: 600; color: #e8eaf0; letter-spacing: -0.3px; }
+  .pc-badge {
+    font-size: 9px; background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.25); border-radius: 4px;
+    padding: 2px 7px; color: #00d4ff; font-weight: 600;
+  }
+
+  .pc-statusbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 13px; border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .pc-dot-wrap { display: flex; align-items: center; gap: 5px; }
+  .pc-dot { width: 6px; height: 6px; border-radius: 50%; background: #00e5a0; box-shadow: 0 0 5px rgba(0,229,160,0.5); }
+  .pc-status { font-size: 9px; color: #50566a; }
+  .pc-toggle-wrap { display: flex; align-items: center; gap: 6px; font-size: 9px; color: #50566a; }
+  .pc-toggle { width: 26px; height: 14px; background: #00d4ff; border-radius: 7px; position: relative; }
+  .pc-toggle-thumb { position: absolute; width: 10px; height: 10px; background: #041018; border-radius: 50%; top: 2px; right: 2px; }
+
+  .pc-section { border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .pc-section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 13px 5px;
+  }
+  .pc-section-label { font-size: 8.5px; font-weight: 700; letter-spacing: 0.09em; color: #50566a; text-transform: uppercase; }
+  .pc-controls { display: flex; align-items: center; gap: 6px; }
+  .pc-save-chip {
+    font-size: 8px; background: rgba(0,229,160,0.08);
+    border: 1px solid rgba(0,229,160,0.2); border-radius: 4px;
+    padding: 2px 7px; color: #00e5a0;
+  }
+  .pc-clear { font-size: 8px; color: #50566a; background: none; border: none; cursor: pointer; text-decoration: underline; }
+  .pc-add {
+    width: 20px; height: 20px; border-radius: 4px;
+    background: #252538; border: 1px solid rgba(255,255,255,0.07);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; line-height: 1; color: #8890a4; cursor: pointer;
+  }
+
+  /* Layer items */
+  .pc-layer-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 13px; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .pc-layer-item.active {
+    background: rgba(0,212,255,0.28);
+    border: 1px solid #78eeff;
+    box-shadow: inset 0 0 0 1px #78eeff, 0 0 0 2px rgba(0,212,255,0.30);
+  }
+  .pc-layer-item.inactive { opacity: 0.5; }
+
+  .pc-vis-btn {
+    width: 16px; height: 16px; border-radius: 3px;
+    background: rgba(255,255,255,0.04);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .pc-layer-thumb {
+    width: 26px; height: 20px; border-radius: 3px; flex-shrink: 0;
+    background: linear-gradient(135deg, #0b6f86, #00d4ff);
+    position: relative; overflow: hidden;
+  }
+  .pc-layer-thumb::after {
+    content: ''; position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      45deg, transparent, transparent 3px,
+      rgba(0,0,0,0.1) 3px, rgba(0,0,0,0.1) 4px
+    );
+  }
+  .pc-layer-thumb2 {
+    width: 26px; height: 20px; border-radius: 3px; flex-shrink: 0;
+    background: linear-gradient(135deg, #1e1e2e, #252538);
+  }
+  .pc-layer-thumb3 {
+    width: 26px; height: 20px; border-radius: 3px; flex-shrink: 0;
+    background: linear-gradient(135deg, #2a1a2e, #3a1a40);
+    opacity: 0.6;
+  }
+  .pc-layer-info { flex: 1; min-width: 0; }
+  .pc-layer-name { font-size: 10px; color: #e8eaf0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pc-layer-meta { font-size: 8px; color: #50566a; margin-top: 1px; }
+  .pc-opacity-pill {
+    font-size: 8px; background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.2); border-radius: 3px;
+    padding: 1px 5px; color: #00d4ff; font-family: monospace;
+  }
+  .pc-opacity-pill2 {
+    font-size: 8px; background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06); border-radius: 3px;
+    padding: 1px 5px; color: #50566a; font-family: monospace;
+  }
+  .pc-drag-handle {
+    color: #30364a; font-size: 9px; line-height: 1;
+    cursor: grab;
+  }
+
+  /* Floating annotation arrows */
+  .ann {
+    position: absolute;
+    font-size: 11px; font-weight: 600; color: #00d4ff;
+    white-space: nowrap;
+  }
+  .ann-line {
+    position: absolute;
+    background: rgba(0,212,255,0.25);
+    border-radius: 1px;
+  }
+
+  /* Number chips for layer count */
+  .layer-count-badge {
+    position: absolute;
+    bottom: -18px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.25);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 11px; color: #00d4ff; font-weight: 600;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+  <div class="bg-dots"></div>
+  <div class="bg-glow"></div>
+
+  <div class="canvas">
+    <!-- Left -->
+    <div class="left">
+      <div class="tag">Layers</div>
+      <h1>Stack your<br><span class="accent">references.</span></h1>
+      <p class="sub">
+        Add <strong>multiple image layers</strong> and toggle them on or off instantly.
+        Each layer remembers its own opacity, position, scale, and blend mode.
+      </p>
+      <div class="features">
+        <div class="feat">
+          <div class="feat-icon">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <rect x="1" y="4" width="12" height="9" rx="1.5" stroke="#00d4ff" stroke-width="1.3"/>
+              <rect x="3" y="2" width="8" height="9" rx="1.5" stroke="#00d4ff" stroke-width="1.3" opacity=".5"/>
+              <rect x="5" y="1" width="8" height="3" rx="1" stroke="#00d4ff" stroke-width="1.3" opacity=".25"/>
+            </svg>
+          </div>
+          <div class="feat-text">
+            <strong>Unlimited layers</strong>
+            Upload via click, drag-and-drop, or paste from clipboard
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <circle cx="7" cy="7" r="5.5" stroke="#00d4ff" stroke-width="1.3"/>
+              <path d="M7 4v3l2 1.5" stroke="#00d4ff" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="feat-text">
+            <strong>Auto-saved per domain</strong>
+            Settings persist — your layers are restored on every visit
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M2 4l5 5 5-5" stroke="#00d4ff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M2 9l5-5 5 5" stroke="#00d4ff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" opacity=".4"/>
+            </svg>
+          </div>
+          <div class="feat-text">
+            <strong>Rename layers</strong>
+            Give each layer a custom name — up to 32 characters
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Layer UI -->
+    <div class="right">
+      <!-- Ghost cards (depth effect) -->
+      <div class="ghost-card" style="top:300px; left:calc(50% - 130px); transform:translateX(28px) rotate(4deg); opacity:0.35;">
+        <div class="ghost-card-header"></div>
+        <div class="ghost-card-body">
+          <div class="ghost-layer-item">
+            <div class="ghost-thumb" style="background: linear-gradient(135deg,#2a1a2e,#3a1a40)"></div>
+            <div class="ghost-line"></div>
+          </div>
+        </div>
+      </div>
+      <div class="ghost-card" style="top:280px; left:calc(50% - 130px); transform:translateX(14px) rotate(2deg); opacity:0.55;">
+        <div class="ghost-card-header"></div>
+        <div class="ghost-card-body">
+          <div class="ghost-layer-item">
+            <div class="ghost-thumb" style="background: linear-gradient(135deg,#1e1e2e,#252538)"></div>
+            <div class="ghost-line"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main popup -->
+      <div class="popup-card" style="position:absolute; left:calc(50% - 180px); top:210px;">
+        <div class="pc-header">
+          <div class="pc-logo">
+            <svg width="16" height="16" viewBox="0 0 22 22" fill="none">
+              <rect x="1" y="1" width="9" height="9" rx="2" fill="#00d4ff"/>
+              <rect x="12" y="1" width="9" height="9" rx="2" fill="#00d4ff"/>
+              <rect x="1" y="12" width="9" height="9" rx="2" fill="#00d4ff"/>
+              <rect x="12" y="12" width="9" height="9" rx="2" fill="#00d4ff"/>
+            </svg>
+            <span class="pc-logo-text">DiffPixel</span>
+          </div>
+        </div>
+
+        <div class="pc-statusbar">
+          <div class="pc-dot-wrap">
+            <span class="pc-dot"></span>
+            <span class="pc-status">Connected</span>
+          </div>
+          <div class="pc-toggle-wrap">
+            <span>Overlay</span>
+            <div class="pc-toggle"><div class="pc-toggle-thumb"></div></div>
+          </div>
+        </div>
+
+        <div class="pc-section">
+          <div class="pc-section-head">
+            <span class="pc-section-label">LAYERS</span>
+            <div class="pc-add">+</div>
+          </div>
+
+          <!-- Layer 1: active -->
+          <div class="pc-layer-item active">
+            <div class="pc-layer-thumb"></div>
+            <div class="pc-layer-info">
+              <div class="pc-layer-name">Design_v2.png</div>
+              <div class="pc-layer-meta">50% | 0px 0px | x1.00</div>
+            </div>
+            <div class="pc-vis-btn">
+              <svg width="10" height="7" viewBox="0 0 10 7" fill="none">
+                <path d="M1 3.5C1 3.5 2.5 1 5 1s4 2.5 4 2.5S7.5 6 5 6 1 3.5 1 3.5z" stroke="#00d4ff" stroke-width="1"/>
+                <circle cx="5" cy="3.5" r="1.3" fill="#00d4ff"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Layer 2 -->
+          <div class="pc-layer-item" style="border-bottom:1px solid rgba(255,255,255,0.03)">
+            <div class="pc-layer-thumb2"></div>
+            <div class="pc-layer-info">
+              <div class="pc-layer-name" style="color:#8890a4">Mockup_old.png</div>
+              <div class="pc-layer-meta">30% | 0px 0px | x1.00</div>
+            </div>
+            <div class="pc-vis-btn">
+              <svg width="10" height="7" viewBox="0 0 10 7" fill="none">
+                <path d="M1 3.5C1 3.5 2.5 1 5 1s4 2.5 4 2.5S7.5 6 5 6 1 3.5 1 3.5z" stroke="#8890a4" stroke-width="1"/>
+                <circle cx="5" cy="3.5" r="1.3" fill="#8890a4"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Layer 3 (hidden) -->
+          <div class="pc-layer-item inactive" style="padding-bottom:8px">
+            <div class="pc-layer-thumb3"></div>
+            <div class="pc-layer-info">
+              <div class="pc-layer-name" style="color:#50566a">Reference_final.png</div>
+              <div class="pc-layer-meta">75% | 0px 0px | x1.00</div>
+            </div>
+            <div class="pc-vis-btn" style="opacity:0.4">
+              <svg width="10" height="7" viewBox="0 0 10 7" fill="none">
+                <path d="M1 1.5l8 5M2 5.5C2 5.5 3.5 3.5 5 3.5" stroke="#50566a" stroke-width="1" stroke-linecap="round"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Controls section -->
+        <div style="border-bottom:1px solid rgba(255,255,255,0.04)">
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 13px 4px">
+            <span style="font-size:8.5px;font-weight:700;letter-spacing:0.09em;color:#50566a;text-transform:uppercase;flex-shrink:0">CONTROLS</span>
+            <div style="flex:1;height:18px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:3px;display:flex;align-items:center;padding:0 7px;font-size:9px;color:#e8eaf0;font-weight:500">Design_v2.png</div>
+          </div>
+          <div style="padding:4px 13px 8px">
+            <!-- Opacity -->
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+              <span style="font-size:8px;color:#8890a4;width:38px;flex-shrink:0">Opacity</span>
+              <div style="flex:1;height:3px;background:#252538;border-radius:2px;position:relative"><div style="position:absolute;left:0;top:0;height:100%;width:50%;background:#00d4ff;border-radius:2px"></div><div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:8px;height:8px;border-radius:50%;background:#00d4ff;border:1.5px solid #041018"></div></div>
+              <div style="width:26px;height:15px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;font-family:monospace;color:#e8eaf0">50</div>
+              <span style="font-size:8px;color:#50566a">%</span>
+            </div>
+            <!-- X -->
+            <div style="display:flex;align-items:center;gap:4px;margin-bottom:5px">
+              <span style="font-size:8px;color:#8890a4;width:38px;flex-shrink:0">X</span>
+              <div style="width:14px;height:14px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:7px;color:#8890a4">◀</div>
+              <div style="flex:1;height:15px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;font-family:monospace;color:#e8eaf0">0</div>
+              <div style="width:14px;height:14px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:7px;color:#8890a4">▶</div>
+              <span style="font-size:8px;color:#50566a">px</span>
+            </div>
+            <!-- Y -->
+            <div style="display:flex;align-items:center;gap:4px;margin-bottom:5px">
+              <span style="font-size:8px;color:#8890a4;width:38px;flex-shrink:0">Y</span>
+              <div style="width:14px;height:14px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:7px;color:#8890a4">◀</div>
+              <div style="flex:1;height:15px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;font-family:monospace;color:#e8eaf0">0</div>
+              <div style="width:14px;height:14px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:7px;color:#8890a4">▶</div>
+              <span style="font-size:8px;color:#50566a">px</span>
+            </div>
+            <!-- Scale -->
+            <div style="display:flex;align-items:center;gap:4px;margin-bottom:5px">
+              <span style="font-size:8px;color:#8890a4;width:38px;flex-shrink:0">Scale</span>
+              <div style="width:14px;height:14px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:7px;color:#8890a4">◀</div>
+              <div style="flex:1;height:15px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;font-family:monospace;color:#e8eaf0">1.00</div>
+              <div style="width:14px;height:14px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:7px;color:#8890a4">▶</div>
+              <span style="font-size:8px;color:#50566a">x</span>
+            </div>
+            <!-- QA -->
+            <div style="display:flex;gap:5px;margin-bottom:5px">
+              <div style="flex:1;height:18px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;color:#8890a4">Reset</div>
+              <div style="flex:1;height:18px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;color:#8890a4">Center</div>
+              <div style="flex:1;height:18px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;color:#8890a4">Fit W</div>
+            </div>
+            <!-- Blend -->
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+              <span style="font-size:8px;color:#8890a4;width:38px;flex-shrink:0">Blend</span>
+              <div style="flex:1;height:18px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:3px;display:flex;align-items:center;justify-content:space-between;padding:0 7px;font-size:8px;color:#e8eaf0">Normal<span style="font-size:7px;color:#50566a">▾</span></div>
+            </div>
+            <!-- Flags -->
+            <div style="display:flex;gap:4px">
+              <div style="flex:1;height:20px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:4px;display:flex;align-items:center;justify-content:center;gap:4px;font-size:8px;color:#8890a4">
+                <svg width="9" height="9" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.4"/><path d="M6.5 1v11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M1.7 6.5h4.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+                Invert
+              </div>
+              <div style="flex:1;height:20px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:4px;display:flex;align-items:center;justify-content:center;gap:4px;font-size:8px;color:#8890a4">
+                <svg width="8" height="9" viewBox="0 0 12 13" fill="none"><rect x="1" y="5.5" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M3 5.5V3.5a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
+                Lock
+              </div>
+              <div style="flex:1;height:20px;background:#252538;border:1px solid rgba(255,77,106,0.2);border-radius:4px;display:flex;align-items:center;justify-content:center;gap:4px;font-size:8px;color:#ff4d6a">
+                <svg width="7" height="7" viewBox="0 0 11 11" fill="none"><line x1="1.5" y1="1.5" x2="9.5" y2="9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="9.5" y1="1.5" x2="1.5" y2="9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                Remove
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Annotation: click to select -->
+      <div style="position:absolute; right:80px; top:340px; text-align:left;">
+        <div style="font-size:11px; font-weight:600; color:#00d4ff; margin-bottom:4px">Click to select</div>
+        <div style="font-size:10px; color:#50566a">Each layer independent</div>
+      </div>
+
+      <!-- Annotation: toggle visibility -->
+      <div style="position:absolute; left:96px; bottom:170px; text-align:right;">
+        <div style="font-size:11px; font-weight:600; color:#00d4ff; margin-bottom:4px">Show / hide</div>
+        <div style="font-size:10px; color:#50566a">Per-layer visibility</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

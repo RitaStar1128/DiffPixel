@@ -1,4 +1,4 @@
-/* Forward LAYER_MOVED / THEME_CHANGED from content scripts to any open popup. */
+/* Toggle the in-page floating panel from the extension toolbar icon. */
 chrome.runtime.onMessage.addListener((msg, _sender) => {
   if (msg.type === 'LAYER_MOVED' || msg.type === 'THEME_CHANGED') {
     chrome.runtime.sendMessage(msg).catch(() => {});

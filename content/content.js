@@ -473,7 +473,7 @@
     return res[K.PANEL_POS] ?? null;
   }
 
-  /* ── Utility for popup ───────────────────── */
+  /* ── Utility helpers ───────────────────── */
   function getFullState() {
     return {
       enabled: globalEnabled, activeLayerId, grid: gridConfig,
@@ -1408,7 +1408,7 @@
     panel.mount(res[K.PANEL_POS] ?? null);
   }
 
-  /* ── chrome.runtime messages (from popup) ── */
+  /* ── chrome.runtime messages ── */
   if (canUseExtensionApi()) {
     try {
       chrome.runtime.onMessage.addListener((msg, sender, reply) => {

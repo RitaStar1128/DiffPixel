@@ -1,30 +1,73 @@
 # DiffPixel
 
-DiffPixel is a Chrome extension for comparing a live page with reference images directly on the page. It opens a floating panel from the extension icon, so the page stays visible while you tune layers.
+DiffPixel is a Chrome extension for comparing a live web page with local reference images directly in the browser.
 
-## Features
+It adds an in-page floating panel that lets you place design screenshots, mockups, or visual references over the current page and adjust them while the page remains visible.
 
-- Upload one or more local reference images as overlay layers.
-- Adjust opacity, position, scale, blend mode, invert, and lock per layer.
-- Fine scale control with decimal input and keyboard arrow adjustment.
-- Toggle a page-level pixel grid and adjust the grid size.
-- Save layer state per site in Chrome local storage.
-- Runs locally without sending images or settings to any server.
+## What It Does
 
-## Local QA
+- Overlay one or more local reference images on the active page.
+- Add images by file picker, drag and drop, or clipboard paste.
+- Adjust layer opacity, position, scale, blend mode, inversion, visibility, and lock state.
+- Use Difference and other blend modes to spot visual mismatches.
+- Toggle a pixel grid for spacing and alignment checks.
+- Save layer settings locally per site.
+- Switch between light and dark panel themes.
+- Use English or Japanese UI text.
 
-1. Open `chrome://extensions`.
-2. Enable Developer mode.
-3. Choose **Load unpacked** and select this project folder.
-4. Open a normal web page, click the DiffPixel icon, and confirm the floating panel appears.
-5. Upload an image, toggle the grid, move and scale the layer, then reload the page to confirm saved state.
+## Why Use It
 
-For local files, enable **Allow access to file URLs** for DiffPixel in Chrome's extension details page.
+DiffPixel is built for visual QA work where small layout differences matter.
 
-## Release Package
-
-Use the ZIP generated in `dist/` for Chrome Web Store upload. The ZIP must contain `manifest.json` at the archive root and should not include `.git`, screenshots, or development-only files.
+Instead of switching between a browser, a design tool, and image previews, you can compare the implementation and the reference on the same page. This helps with spacing, alignment, scale, responsive checks, and quick design review before shipping.
 
 ## Privacy
 
-DiffPixel does not collect, transmit, sell, or share user data. Uploaded reference images and settings are stored locally in Chrome storage on the user's device. See `PRIVACY.md` for the store-facing privacy text.
+DiffPixel runs locally in Chrome.
+
+Uploaded images and overlay settings are stored on the user's device through Chrome storage. The extension does not send uploaded images, page data, or settings to an external server.
+
+The public privacy policy is available at [docs/privacy.html](docs/privacy.html), with a Japanese version at [docs/privacy_ja.html](docs/privacy_ja.html). A plain-text copy is also available in [PRIVACY.md](PRIVACY.md).
+
+## Installation For Development
+
+1. Open `chrome://extensions` in Chrome.
+2. Enable **Developer mode**.
+3. Click **Load unpacked**.
+4. Select this repository folder.
+5. Open a normal web page and click the DiffPixel extension icon.
+
+For `file://` pages, enable **Allow access to file URLs** from the extension details page in Chrome.
+
+## Chrome Web Store
+
+DiffPixel is intended to be distributed as a Chrome extension through the Chrome Web Store.
+
+For a store upload, use the release ZIP in `dist/`. The archive should contain `manifest.json` at the root and include only the extension files required by Chrome.
+
+## Project Structure
+
+- `manifest.json` - Chrome extension manifest.
+- `background/` - extension service worker.
+- `content/` - in-page overlay and floating panel.
+- `icons/` - extension icons.
+- `_locales/` - localized extension strings.
+- `docs/` - public documentation pages.
+- `store-promo/` - Chrome Web Store promotional images.
+- `store-screenshots/` - Chrome Web Store screenshot assets.
+- `dist/` - packaged release ZIP.
+
+## Permissions
+
+DiffPixel uses a small set of Chrome extension permissions:
+
+- `activeTab` to run on the current tab after the user clicks the extension icon.
+- `scripting` to inject the in-page overlay and floating panel.
+- `storage` to save layer settings locally.
+- `unlimitedStorage` to support local reference images and visual QA sessions without the default storage limit getting in the way.
+
+## Development Notes
+
+No external service is required to run DiffPixel locally.
+
+After making changes, reload the extension from `chrome://extensions`, refresh the target page, and test the floating panel on a normal web page.

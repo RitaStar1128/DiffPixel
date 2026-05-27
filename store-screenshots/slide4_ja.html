@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=1280"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>DiffPixel – Slide 4 JA: Controls</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -14,7 +14,7 @@
   }
   .bg-lines { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,212,255,0.025) 39px, rgba(0,212,255,0.025) 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,212,255,0.025) 39px, rgba(0,212,255,0.025) 40px); }
   .bg-glow { position: absolute; width: 600px; height: 600px; background: radial-gradient(ellipse, rgba(0,212,255,0.055) 0%, transparent 68%); top: 50%; left: 55%; transform: translate(-50%,-50%); }
-  .canvas { position: relative; z-index: 1; width: 1280px; height: 800px; display: flex; align-items: center; }
+  .canvas { position: relative; z-index: 1; width: 100%; height: 100%; display: flex; align-items: center; }
 
   .left { width: 460px; padding: 0 0 0 80px; flex-shrink: 0; }
   .tag { display: inline-flex; align-items: center; gap: 7px; background: rgba(0,212,255,0.08); border: 1px solid rgba(0,212,255,0.2); border-radius: 100px; padding: 5px 14px; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; color: #00d4ff; margin-bottom: 26px; }
@@ -29,7 +29,7 @@
   .fl-text { font-size: 13px; color: #8890a4; line-height: 1.4; }
   .fl-text strong { color: #c8ccd8; font-weight: 600; }
 
-  .right { flex: 1; height: 800px; display: flex; align-items: center; justify-content: center; position: relative; }
+  .right { flex: 1; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; }
 
   .ctrl-panel { width: 360px; background: #0d0d16; border: 1px solid rgba(0,212,255,0.2); border-radius: 10px; box-shadow: 0 40px 100px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,212,255,0.05), 0 0 60px rgba(0,212,255,0.07); overflow: hidden; font-family: 'Hiragino Sans', 'Yu Gothic UI', -apple-system, sans-serif; }
 

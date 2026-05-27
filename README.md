@@ -27,7 +27,7 @@ DiffPixel runs locally in Chrome.
 
 Uploaded images and overlay settings are stored on the user's device through Chrome storage. The extension does not send uploaded images, page data, or settings to an external server.
 
-The public privacy policy is available at [docs/privacy.html](docs/privacy.html), with a Japanese version at [docs/privacy_ja.html](docs/privacy_ja.html). A plain-text copy is also available in [PRIVACY.md](PRIVACY.md).
+The public privacy policy is available at [https://ritastar1128.github.io/DiffPixel/privacy.html](https://ritastar1128.github.io/DiffPixel/privacy.html), with a Japanese version at [https://ritastar1128.github.io/DiffPixel/privacy_ja.html](https://ritastar1128.github.io/DiffPixel/privacy_ja.html). A plain-text copy is also available in [PRIVACY.md](PRIVACY.md).
 
 ## Installation For Development
 

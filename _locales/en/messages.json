@@ -11,8 +11,9 @@
   "sectionControls": { "message": "CONTROLS" },
   "sectionTools": { "message": "TOOLS" },
 
-  "addLayerTitle": { "message": "Add layer - click or drop image" },
-  "emptyState": { "message": "Drop an image or click + to start" },
+  "addLayerTitle": { "message": "Add layer - click, drop, or paste image" },
+  "btnAddLayer": { "message": "Add" },
+  "emptyState": { "message": "Drop, paste, or click + to start" },
 
   "labelOpacity": { "message": "Opacity" },
   "labelX": { "message": "X" },
@@ -50,8 +51,10 @@
   "visShow": { "message": "Show layer" },
   "visHide": { "message": "Hide layer" },
   "dropHint": { "message": "Drop image to add layer" },
+  "clipboardLayerName": { "message": "Clipboard image" },
 
   "layerDefault": { "message": "Layer" },
+  "labelLayerName": { "message": "Name" },
   "layerNamePlaceholder": { "message": "Layer name" },
 
   "toggleTheme": { "message": "Toggle light / dark theme" },

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DiffPixel – Slide 1 JA</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 1280px; height: 800px; overflow: hidden;
+    background: #0d0d16;
+    font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Meiryo', 'Helvetica Neue', Arial, sans-serif;
+    color: #e8eaf0; position: relative;
+  }
+  .bg-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .bg-glow {
+    position: absolute; width: 600px; height: 600px;
+    background: radial-gradient(ellipse, rgba(0,212,255,0.07) 0%, transparent 70%);
+    top: 50%; left: 60%; transform: translate(-50%,-50%);
+  }
+  .bg-glow2 {
+    position: absolute; width: 400px; height: 400px;
+    background: radial-gradient(ellipse, rgba(0,212,255,0.05) 0%, transparent 70%);
+    top: 10%; left: 5%;
+  }
+  .canvas {
+    position: relative; z-index: 1;
+    width: 100%; height: 100%;
+    display: flex; align-items: center;
+  }
+
+  /* Left */
+  .text-panel { width: 540px; padding: 0 0 0 80px; flex-shrink: 0; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.25);
+    border-radius: 100px; padding: 5px 14px 5px 10px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+    color: #00d4ff; margin-bottom: 28px;
+  }
+  .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: #00d4ff; box-shadow: 0 0 6px #00d4ff; }
+  .headline { font-size: 56px; font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 22px; }
+  .headline .line1 { display: block; color: #e8eaf0; }
+  .headline .line2 { display: block; color: #00d4ff; }
+  .headline .line3 { display: block; color: #e8eaf0; }
+  .subtext { font-size: 15px; font-weight: 400; color: #9098b8; line-height: 1.7; max-width: 390px; margin-bottom: 36px; }
+  .subtext strong { color: #a8aec8; font-weight: 500; }
+  .cta-label { font-size: 12px; color: #50566a; display: flex; align-items: center; gap: 8px; }
+  .stars { color: #00d4ff; font-size: 13px; letter-spacing: 1px; }
+
+  /* Right */
+  .visual-panel { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; height: 100%; }
+  .browser {
+    width: 520px; height: 380px; background: #161622; border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 40px 100px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+    overflow: hidden; position: relative; margin-top: 40px;
+  }
+  .browser-bar {
+    height: 38px; background: #1e1e2e;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex; align-items: center; padding: 0 14px; gap: 7px; flex-shrink: 0;
+  }
+  .browser-dot { width: 11px; height: 11px; border-radius: 50%; }
+  .d-red { background: #ff5f57; } .d-yellow { background: #ffbd2e; } .d-green { background: #28c840; }
+  .browser-url {
+    flex: 1; margin: 0 12px; height: 22px; background: rgba(255,255,255,0.05);
+    border-radius: 5px; display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: #50566a; font-family: monospace;
+  }
+  .browser-content { background: #12121e; height: calc(380px - 38px); position: relative; overflow: hidden; }
+  .webpage-nav { height: 44px; background: #1a1a28; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; padding: 0 20px; gap: 20px; }
+  .webpage-nav-logo { width: 70px; height: 10px; background: linear-gradient(90deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1)); border-radius: 2px; }
+  .webpage-nav-link { width: 35px; height: 8px; background: rgba(255,255,255,0.08); border-radius: 2px; }
+  .webpage-body { padding: 24px; }
+  .webpage-hero-block { width: 100%; height: 52px; background: linear-gradient(135deg, rgba(0,212,255,0.08), rgba(0,212,255,0.03)); border-radius: 6px; border: 1px solid rgba(0,212,255,0.1); margin-bottom: 14px; display: flex; align-items: center; padding: 0 16px; gap: 10px; }
+  .webpage-hero-dot { width: 28px; height: 28px; border-radius: 50%; background: rgba(0,212,255,0.15); }
+  .webpage-hero-text { flex: 1; }
+  .webpage-hero-line1 { height: 9px; background: rgba(255,255,255,0.2); border-radius: 2px; width: 60%; margin-bottom: 5px; }
+  .webpage-hero-line2 { height: 7px; background: rgba(255,255,255,0.08); border-radius: 2px; width: 40%; }
+  .webpage-cards { display: flex; gap: 10px; }
+  .webpage-card { flex: 1; height: 72px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 5px; padding: 10px; }
+  .webpage-card-top { height: 7px; background: rgba(255,255,255,0.12); border-radius: 2px; width: 50%; margin-bottom: 6px; }
+  .webpage-card-line { height: 6px; background: rgba(255,255,255,0.05); border-radius: 2px; margin-bottom: 4px; }
+  .overlay-ghost { position: absolute; top: 38px; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, rgba(0,212,255,0.04), rgba(0,212,255,0.01)); mix-blend-mode: screen; pointer-events: none; }
+  .overlay-diff-spot { position: absolute; background: rgba(0,212,255,0.18); border: 1px solid rgba(0,212,255,0.4); border-radius: 3px; }
+
+  /* Popup */
+  .popup {
+    width: 236px; background: #0d0d16;
+    border: 1px solid rgba(0,212,255,0.2); border-radius: 10px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.8), 0 0 0 1px rgba(0,212,255,0.06), 0 0 40px rgba(0,212,255,0.08);
+    position: absolute; right: 48px; top: 50%; transform: translateY(-50%);
+    overflow: hidden;
+    font-family: 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', -apple-system, sans-serif;
+    font-size: 9px;
+  }
+  .pm-header { display: flex; align-items: center; justify-content: space-between; padding: 9px 11px; background: #161622; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .pm-logo { display: flex; align-items: center; gap: 7px; }
+  .pm-logo-text { font-size: 11px; font-weight: 600; color: #e8eaf0; letter-spacing: -0.3px; }
+  .pm-header-right { display: flex; align-items: center; gap: 6px; }
+  .pm-select { background: #252538; border: 1px solid rgba(255,255,255,0.07); border-radius: 4px; color: #8890a4; font-size: 8px; padding: 2px 5px; }
+  .pm-theme-btn { width: 22px; height: 22px; border-radius: 4px; background: #252538; border: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: center; color: #8890a4; }
+  .pm-statusbar { display: flex; align-items: center; justify-content: space-between; padding: 6px 11px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .pm-status-main { display: flex; align-items: center; gap: 5px; }
+  .pm-dot { width: 6px; height: 6px; border-radius: 50%; background: #00e5a0; box-shadow: 0 0 6px rgba(0,229,160,0.6); }
+  .pm-status-text { font-size: 9px; color: #50566a; }
+  .pm-overlay-label { display: flex; align-items: center; gap: 5px; font-size: 9px; color: #50566a; }
+  .pm-toggle { width: 26px; height: 14px; background: #00d4ff; border-radius: 7px; position: relative; }
+  .pm-toggle-thumb { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: #041018; top: 2px; right: 2px; }
+  .pm-section { border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .pm-section-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 11px 4px; }
+  .pm-section-label { font-size: 8px; font-weight: 600; letter-spacing: 0.04em; color: #50566a; text-transform: uppercase; }
+  .pm-add-btn { width: 18px; height: 18px; border-radius: 4px; background: #252538; border: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: center; color: #8890a4; font-size: 12px; }
+  .pm-layer { display: flex; align-items: center; gap: 7px; padding: 5px 11px; background: rgba(0,212,255,0.28); border: 1px solid #78eeff; box-shadow: inset 0 0 0 1px #78eeff, 0 0 0 2px rgba(0,212,255,0.30); margin: 2px 6px; border-radius: 4px; }
+  .pm-layer2 { display: flex; align-items: center; gap: 7px; padding: 5px 11px; margin: 2px 6px 5px; border-radius: 4px; background: rgba(255,255,255,0.02); }
+  .pm-layer-thumb { width: 22px; height: 16px; border-radius: 2px; background: linear-gradient(135deg, #0b6f86, #00d4ff); opacity: 0.7; flex-shrink: 0; }
+  .pm-layer-thumb2 { width: 22px; height: 16px; border-radius: 2px; background: linear-gradient(135deg, #252538, #1e1e2e); flex-shrink: 0; }
+  .pm-layer-name { font-size: 9px; color: #e8eaf0; flex: 1; }
+  .pm-layer-name2 { font-size: 9px; color: #50566a; }
+  .pm-layer-meta { font-size: 7.5px; color: #50566a; font-family: monospace; margin-top: 1px; }
+  .pm-layer-info { flex: 1; min-width: 0; }
+  .pm-eye { color: #8890a4; flex-shrink: 0; display: flex; align-items: center; }
+  .pm-name-input { flex:1; margin-left:6px; height:16px; background:#252538; border:1px solid rgba(255,255,255,0.07); border-radius:3px; display:flex; align-items:center; padding:0 6px; font-size:8px; color:#e8eaf0; font-weight:500; min-width:0; overflow:hidden; white-space:nowrap; }
+  .pm-ctrl-section { padding: 5px 11px 7px; }
+  .pm-ctrl-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .pm-ctrl-label { font-size: 8px; color: #8890a4; width: 40px; flex-shrink: 0; }
+  .pm-slider-wrap { flex: 1; height: 3px; background: #252538; border-radius: 2px; position: relative; }
+  .pm-slider-fill { position: absolute; left: 0; top: 0; height: 100%; background: #00d4ff; border-radius: 2px; }
+  .pm-slider-thumb { position: absolute; top: 50%; transform: translate(-50%,-50%); width: 8px; height: 8px; border-radius: 50%; background: #00d4ff; border: 1.5px solid #041018; }
+  .pm-num { width: 26px; height: 16px; background: #252538; border: 1px solid rgba(255,255,255,0.07); border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #e8eaf0; font-family: monospace; }
+  .pm-unit { font-size: 8px; color: #50566a; }
+  .pm-pos-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+  .pm-pos-label { font-size: 8px; color: #8890a4; width: 10px; flex-shrink: 0; }
+  .pm-step { width: 14px; height: 14px; background: #252538; border: 1px solid rgba(255,255,255,0.07); border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #8890a4; }
+  .pm-pos-num { flex: 1; height: 16px; background: #252538; border: 1px solid rgba(255,255,255,0.07); border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #e8eaf0; font-family: monospace; }
+  .pm-qa-row { display: flex; gap: 4px; margin: 6px 0 4px; }
+  .pm-qa-btn { flex: 1; height: 18px; background: #252538; border: 1px solid rgba(255,255,255,0.07); border-radius: 3px; font-size: 7.5px; color: #8890a4; display: flex; align-items: center; justify-content: center; }
+  .float-label { position: absolute; background: rgba(0,212,255,0.08); border: 1px solid rgba(0,212,255,0.2); border-radius: 6px; padding: 5px 10px; font-size: 10px; color: #00d4ff; font-weight: 600; white-space: nowrap; }
+  .version-badge { position: absolute; bottom: 28px; left: 80px; font-size: 11px; color: #30364a; font-weight: 500; }
+</style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
+  <div class="bg-glow2"></div>
+  <div class="canvas">
+    <div class="text-panel">
+      <div class="badge"><span class="badge-dot"></span>デザイナー・開発者向け Chrome 拡張機能</div>
+      <h1 class="headline">
+        <span class="line1">ピクセル精度の</span>
+        <span class="line2">オーバーレイ</span>
+        <span class="line3">比較。</span>
+      </h1>
+      <p class="subtext">
+        <strong>参照画像</strong>を任意の Web ページに直接重ね、
+        デザインモックアップと<strong>実装の差分</strong>をリアルタイムで確認。
+        ズレをすぐに発見できます。
+      </p>
+      <div class="cta-label">
+        無料 · Chrome ウェブストア
+      </div>
+    </div>
+    <div class="visual-panel">
+      <div class="browser">
+        <div class="browser-bar">
+          <div class="browser-dot d-red"></div>
+          <div class="browser-dot d-yellow"></div>
+          <div class="browser-dot d-green"></div>
+          <div class="browser-url">https://yoursite.com</div>
+        </div>
+        <div class="browser-content">
+          <div class="webpage-nav">
+            <div class="webpage-nav-logo"></div>
+            <div class="webpage-nav-link"></div>
+            <div class="webpage-nav-link"></div>
+            <div class="webpage-nav-link"></div>
+          </div>
+          <div class="webpage-body">
+            <div class="webpage-hero-block">
+              <div class="webpage-hero-dot"></div>
+              <div class="webpage-hero-text">
+                <div class="webpage-hero-line1"></div>
+                <div class="webpage-hero-line2"></div>
+              </div>
+            </div>
+            <div class="webpage-cards">
+              <div class="webpage-card"><div class="webpage-card-top"></div><div class="webpage-card-line"></div><div class="webpage-card-line" style="width:60%"></div></div>
+              <div class="webpage-card"><div class="webpage-card-top"></div><div class="webpage-card-line"></div><div class="webpage-card-line" style="width:80%"></div></div>
+              <div class="webpage-card"><div class="webpage-card-top"></div><div class="webpage-card-line"></div><div class="webpage-card-line" style="width:50%"></div></div>
+            </div>
+          </div>
+          <div class="overlay-ghost"></div>
+          <div class="overlay-diff-spot" style="top:60px;left:20px;width:70px;height:14px;opacity:0.6"></div>
+          <div class="overlay-diff-spot" style="top:96px;left:130px;width:40px;height:10px;opacity:0.4"></div>
+          <div class="overlay-diff-spot" style="top:140px;left:60px;width:50px;height:8px;opacity:0.5"></div>
+        </div>
+      </div>
+      <!-- Popup -->
+      <div class="popup">
+        <div class="pm-header">
+          <div class="pm-logo">
+            <svg width="16" height="16" viewBox="0 0 22 22" fill="none">
+              <rect x="1" y="1" width="9" height="9" rx="2" fill="#00d4ff"/>
+              <rect x="12" y="1" width="9" height="9" rx="2" fill="#00d4ff"/>
+              <rect x="1" y="12" width="9" height="9" rx="2" fill="#00d4ff"/>
+              <rect x="12" y="12" width="9" height="9" rx="2" fill="#00d4ff"/>
+            </svg>
+            <span class="pm-logo-text">DiffPixel</span>
+          </div>
+          <div class="pm-header-right">
+            <select class="pm-select"><option>言語: JA</option></select>
+            <div class="pm-theme-btn">
+              <svg width="10" height="10" viewBox="0 0 15 15" fill="none"><path d="M11.9 9.2A5 5 0 0 1 5.8 3.1a5.2 5.2 0 1 0 6.1 6.1Z" stroke="currentColor" stroke-width="1.45" stroke-linejoin="round"/><path d="M10.5 2.1l.35 1.05 1.05.35-1.05.35-.35 1.05-.35-1.05-1.05-.35 1.05-.35.35-1.05Z" fill="currentColor"/></svg>
+            </div>
+          </div>
+        </div>
+        <div class="pm-statusbar">
+          <div class="pm-status-main"><span class="pm-dot"></span><span class="pm-status-text">接続済み</span></div>
+          <div class="pm-overlay-label"><span>オーバーレイ</span><div class="pm-toggle"><div class="pm-toggle-thumb"></div></div></div>
+        </div>
+        <div class="pm-section">
+          <div class="pm-section-head"><span class="pm-section-label">レイヤー</span><div class="pm-add-btn">+</div></div>
+          <div class="pm-layer">
+            <div class="pm-layer-thumb"></div>
+            <div class="pm-layer-info">
+              <div class="pm-layer-name">Design_v2.png</div>
+              <div class="pm-layer-meta">50% | 0px 0px | x1.00</div>
+            </div>
+            <div class="pm-eye"><svg width="10" height="7" viewBox="0 0 10 7" fill="none"><path d="M1 3.5C1 3.5 2.5 1 5 1s4 2.5 4 2.5S7.5 6 5 6 1 3.5 1 3.5z" stroke="#00d4ff" stroke-width="1"/><circle cx="5" cy="3.5" r="1.3" fill="#00d4ff"/></svg></div>
+          </div>
+          <div class="pm-layer2">
+            <div class="pm-layer-thumb2"></div>
+            <div class="pm-layer-info">
+              <div class="pm-layer-name2">Mockup_old.png</div>
+              <div class="pm-layer-meta">30% | 0px 0px | x1.00</div>
+            </div>
+            <div class="pm-eye" style="opacity:0.3"><svg width="10" height="7" viewBox="0 0 10 7" fill="none"><path d="M1 1.5l8 5M2 5.5C2 5.5 3.5 3.5 5 3.5" stroke="#8890a4" stroke-width="1" stroke-linecap="round"/></svg></div>
+          </div>
+        </div>
+        <div class="pm-section">
+          <div class="pm-section-head">
+            <span class="pm-section-label">調整</span>
+            <div class="pm-name-input">Design_v2.png</div>
+          </div>
+          <div class="pm-ctrl-section">
+            <div class="pm-ctrl-row">
+              <span class="pm-ctrl-label">不透明度</span>
+              <div class="pm-slider-wrap"><div class="pm-slider-fill" style="width:50%"></div><div class="pm-slider-thumb" style="left:50%"></div></div>
+              <div class="pm-num">50</div><span class="pm-unit">%</span>
+            </div>
+            <div class="pm-pos-row"><span class="pm-ctrl-label">X</span><div class="pm-step">◀</div><div class="pm-pos-num">0</div><div class="pm-step">▶</div><span class="pm-unit">px</span></div>
+            <div class="pm-pos-row"><span class="pm-ctrl-label">Y</span><div class="pm-step">◀</div><div class="pm-pos-num">0</div><div class="pm-step">▶</div><span class="pm-unit">px</span></div>
+            <div class="pm-pos-row"><span class="pm-ctrl-label">スケール</span><div class="pm-step">◀</div><div class="pm-pos-num">1.00</div><div class="pm-step">▶</div><span class="pm-unit">x</span></div>
+            <div class="pm-qa-row">
+              <div class="pm-qa-btn">リセット</div>
+              <div class="pm-qa-btn">中央</div>
+              <div class="pm-qa-btn" style="font-size:7px">幅に合わせる</div>
+            </div>
+            <div class="pm-ctrl-row" style="margin-top:2px">
+              <span class="pm-ctrl-label">合成</span>
+              <div style="flex:1;height:16px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:3px;display:flex;align-items:center;justify-content:space-between;padding:0 6px;font-size:8px;color:#e8eaf0">通常<span style="font-size:6px;color:#50566a">▾</span></div>
+            </div>
+            <div class="pm-qa-row" style="margin-top:4px">
+              <div class="pm-qa-btn" style="display:flex;align-items:center;gap:3px"><svg width="8" height="8" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.4"/><path d="M6.5 1v11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M1.7 6.5h4.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>反転</div>
+              <div class="pm-qa-btn" style="display:flex;align-items:center;gap:3px"><svg width="8" height="9" viewBox="0 0 12 13" fill="none"><rect x="1" y="5.5" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M3 5.5V3.5a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>固定</div>
+              <div class="pm-qa-btn" style="display:flex;align-items:center;gap:3px;color:#ff4d6a;border-color:rgba(255,77,106,0.2)"><svg width="7" height="7" viewBox="0 0 11 11" fill="none"><line x1="1.5" y1="1.5" x2="9.5" y2="9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="9.5" y1="1.5" x2="1.5" y2="9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>削除</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="float-label" style="bottom:100px; left:50px;">不透明度 50%</div>
+      <div class="float-label" style="top:80px; left:56px;">差の絶対値モード</div>
+      <div class="float-label" style="bottom:170px; right:20px; font-size:9px;">ドラッグで移動</div>
+    </div>
+  </div>
+  <div class="version-badge">DiffPixel v1.0 · 無料 Chrome 拡張機能</div>
+</body>
+</html>

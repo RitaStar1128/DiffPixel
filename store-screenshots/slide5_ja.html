@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DiffPixel – Slide 5 JA: Theme / i18n / Shortcuts</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 1280px; height: 800px; overflow: hidden;
+    background: #0d0d16;
+    font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Meiryo', Arial, sans-serif;
+    color: #e8eaf0; position: relative;
+  }
+  .bg-dots { position: absolute; inset: 0; background-image: radial-gradient(rgba(0,212,255,0.05) 1px, transparent 1px); background-size: 32px 32px; }
+  .bg-glow-l { position: absolute; width: 500px; height: 500px; background: radial-gradient(ellipse, rgba(0,212,255,0.06) 0%, transparent 65%); top: 50%; left: 30%; transform: translate(-50%,-50%); }
+  .bg-glow-r { position: absolute; width: 400px; height: 400px; background: radial-gradient(ellipse, rgba(0,85,204,0.05) 0%, transparent 65%); top: 50%; left: 70%; transform: translate(-50%,-50%); }
+  .canvas { position: relative; z-index: 1; width: 100%; height: 100%; }
+
+  .top-section { text-align: center; padding-top: 60px; margin-bottom: 44px; }
+  .tag { display: inline-flex; align-items: center; gap: 7px; background: rgba(0,212,255,0.08); border: 1px solid rgba(0,212,255,0.2); border-radius: 100px; padding: 5px 18px; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; color: #00d4ff; margin-bottom: 20px; }
+  h1 { font-size: 48px; font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; }
+  h1 .accent { color: #00d4ff; }
+  h1 .dim { color: #50566a; }
+  .sub { font-size: 15px; color: #9098b8; margin-top: 14px; }
+
+  .cols { display: flex; gap: 24px; padding: 0 60px; align-items: flex-start; }
+  .col { flex: 1; background: #161622; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.4); }
+  .col-header { padding: 14px 16px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .col-tag { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.05em; color: #00d4ff; background: rgba(0,212,255,0.08); border: 1px solid rgba(0,212,255,0.2); border-radius: 4px; padding: 2px 8px; margin-bottom: 6px; }
+  .col-title { font-size: 16px; font-weight: 700; color: #e8eaf0; letter-spacing: -0.02em; }
+  .col-sub { font-size: 11px; color: #50566a; margin-top: 3px; }
+  .col-body { padding: 14px 16px; }
+
+  /* Theme split */
+  .theme-split { display: flex; gap: 8px; }
+  .mini-popup { flex: 1; border-radius: 7px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  .mini-popup.dark { background: #0d0d16; border: 1px solid rgba(0,212,255,0.18); }
+  .mini-popup.light { background: #f2f3f8; border: 1px solid rgba(0,0,0,0.08); }
+
+  .mp-header { display: flex; align-items: center; justify-content: space-between; padding: 7px 9px; }
+  .mp-header.dark { background: #161622; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .mp-header.light { background: #ffffff; border-bottom: 1px solid rgba(0,0,0,0.07); }
+  .mp-logo { display: flex; align-items: center; gap: 5px; }
+  .mp-logo-text { font-size: 10px; font-weight: 600; letter-spacing: -0.3px; }
+  .mp-logo-text.dark { color: #e8eaf0; }
+  .mp-logo-text.light { color: #1a1d2e; }
+  .mp-body { padding: 8px; }
+  .mp-status { display: flex; align-items: center; justify-content: space-between; padding: 4px 9px; margin-bottom: 2px; }
+  .mp-status-left { display: flex; align-items: center; gap: 4px; }
+  .mp-dot-green { width: 5px; height: 5px; border-radius: 50%; background: #00e5a0; }
+  .mp-dot-blue { width: 5px; height: 5px; border-radius: 50%; background: #0055cc; }
+  .mp-status-text { font-size: 8px; }
+  .mp-status-text.dark { color: #50566a; }
+  .mp-status-text.light { color: #9499b0; }
+  .mp-layer-row { display: flex; align-items: center; gap: 5px; padding: 4px 7px; border-radius: 4px; margin-bottom: 3px; }
+  .mp-layer-row.dark.active { background: rgba(0,212,255,0.28); border: 1px solid #78eeff; box-shadow: inset 0 0 0 1px #78eeff; }
+  .mp-layer-row.light.active { background: rgba(0,85,204,0.18); border: 1px solid #2d7cff; box-shadow: inset 0 0 0 1px #2d7cff; }
+  .mp-thumb { width: 18px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+  .mp-name { font-size: 8px; flex: 1; }
+  .mp-name.dark { color: #e8eaf0; }
+  .mp-name.light { color: #1a1d2e; }
+  .mp-pct { font-size: 7px; font-family: monospace; padding: 1px 4px; border-radius: 2px; }
+  .mp-pct.dark { background: rgba(0,212,255,0.1); color: #00d4ff; }
+  .mp-pct.light { background: rgba(0,85,204,0.08); color: #0055cc; }
+  .mp-slider { padding: 3px 9px 6px; display: flex; align-items: center; gap: 5px; }
+  .mp-slider-label { font-size: 7px; width: 32px; flex-shrink: 0; }
+  .mp-slider-label.dark { color: #8890a4; }
+  .mp-slider-label.light { color: #5a6080; }
+  .mp-slider-track { flex: 1; height: 3px; border-radius: 2px; position: relative; }
+  .mp-slider-track.dark { background: #252538; }
+  .mp-slider-track.light { background: #dfe0ef; }
+  .mp-slider-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 2px; }
+  .mp-slider-fill.dark { background: #00d4ff; width: 50%; }
+  .mp-slider-fill.light { background: #0055cc; width: 50%; }
+  .mp-slider-thumb-d { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 7px; height: 7px; border-radius: 50%; background: #00d4ff; border: 1.5px solid #0d0d16; }
+  .mp-slider-thumb-l { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 7px; height: 7px; border-radius: 50%; background: #0055cc; border: 1.5px solid #f2f3f8; }
+  .theme-label { text-align: center; margin-top: 8px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; }
+  .theme-label.dark { color: #50566a; }
+  .theme-label.light { color: #9499b0; }
+
+  /* Language */
+  .lang-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; border: 1px solid rgba(255,255,255,0.04); background: rgba(255,255,255,0.02); }
+  .lang-flag { width: 22px; height: 16px; border-radius: 2px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1; }
+  .lang-code { font-size: 11px; font-weight: 700; color: #e8eaf0; width: 24px; flex-shrink: 0; }
+  .lang-label { font-size: 11px; color: #8890a4; flex: 1; }
+  .lang-sample { font-size: 9px; color: #50566a; font-family: monospace; text-align: right; }
+  .lang-row.active { background: rgba(0,212,255,0.06); border-color: rgba(0,212,255,0.2); }
+  .lang-row.active .lang-code { color: #00d4ff; }
+  .lang-row.active .lang-label { color: #c8ccd8; }
+  .lang-note { font-size: 10px; color: #50566a; margin-top: 8px; line-height: 1.6; padding: 8px; background: rgba(255,255,255,0.02); border-radius: 5px; border: 1px solid rgba(255,255,255,0.04); }
+
+  /* Shortcuts */
+  .shortcut-list { display: flex; flex-direction: column; gap: 7px; }
+  .shortcut-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); border-radius: 6px; }
+  .shortcut-desc { font-size: 11px; color: #8890a4; }
+  .shortcut-keys { display: flex; align-items: center; gap: 3px; }
+  .kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 6px; background: #252538; border: 1px solid rgba(255,255,255,0.12); border-bottom: 2px solid rgba(0,0,0,0.5); border-radius: 4px; font-size: 10px; font-weight: 600; color: #c8ccd8; font-family: 'SFMono-Regular', Consolas, monospace; line-height: 1; }
+  .kbd-plus { font-size: 9px; color: #30364a; }
+  .shortcut-row.highlight { background: rgba(0,212,255,0.05); border-color: rgba(0,212,255,0.15); }
+  .shortcut-row.highlight .shortcut-desc { color: #c8ccd8; }
+
+  .bottom-strip { position: absolute; bottom: 0; left: 0; right: 0; height: 50px; background: linear-gradient(180deg, transparent 0%, rgba(0,212,255,0.03) 100%); border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; gap: 48px; }
+  .strip-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #50566a; }
+  .strip-dot { width: 4px; height: 4px; border-radius: 50%; background: #00d4ff; }
+</style>
+</head>
+<body>
+  <div class="bg-dots"></div>
+  <div class="bg-glow-l"></div>
+  <div class="bg-glow-r"></div>
+  <div class="canvas">
+    <div class="top-section">
+      <div class="tag">ワークフローに溶け込む</div>
+      <h1>ダーク &amp; ライト · <span class="accent">EN / JA</span> · <span class="dim">ショートカット</span></h1>
+      <div class="sub">必要なものがすべて、好みの形で。</div>
+    </div>
+
+    <div class="cols">
+      <!-- Col 1: Theme -->
+      <div class="col">
+        <div class="col-header">
+          <div class="col-tag">テーマ</div>
+          <div class="col-title">ダーク &amp; ライトモード</div>
+          <div class="col-sub">ワンクリック切替 — 設定は自動保存</div>
+        </div>
+        <div class="col-body">
+          <div class="theme-split">
+            <!-- Dark -->
+            <div style="flex:1">
+              <div class="mini-popup dark">
+                <div class="mp-header dark">
+                  <div class="mp-logo">
+                    <svg width="12" height="12" viewBox="0 0 22 22" fill="none"><rect x="1" y="1" width="9" height="9" rx="2" fill="#00d4ff"/><rect x="12" y="1" width="9" height="9" rx="2" fill="#00d4ff"/><rect x="1" y="12" width="9" height="9" rx="2" fill="#00d4ff"/><rect x="12" y="12" width="9" height="9" rx="2" fill="#00d4ff"/></svg>
+                    <span class="mp-logo-text dark">DiffPixel</span>
+                  </div>
+                  <svg width="9" height="9" viewBox="0 0 15 15" fill="none"><path d="M11.9 9.2A5 5 0 0 1 5.8 3.1a5.2 5.2 0 1 0 6.1 6.1Z" stroke="#8890a4" stroke-width="1.45" stroke-linejoin="round"/><path d="M10.5 2.1l.35 1.05 1.05.35-1.05.35-.35 1.05-.35-1.05-1.05-.35 1.05-.35.35-1.05Z" fill="#8890a4"/></svg>
+                </div>
+                <div class="mp-status dark">
+                  <div class="mp-status-left"><div class="mp-dot-green"></div><span class="mp-status-text dark">接続済み</span></div>
+                  <div style="width:20px;height:10px;background:#00d4ff;border-radius:5px;position:relative"><div style="position:absolute;width:7px;height:7px;background:#041018;border-radius:50%;top:1.5px;right:1.5px"></div></div>
+                </div>
+                <div class="mp-body">
+                  <div style="font-size:7px;font-weight:700;letter-spacing:0.05em;color:#50566a;margin-bottom:4px;padding:0 1px">レイヤー</div>
+                  <div class="mp-layer-row dark active"><div class="mp-thumb" style="background:linear-gradient(135deg,#0b6f86,#00d4ff)"></div><span class="mp-name dark">Design.png</span><span class="mp-pct dark">50%</span></div>
+                  <div class="mp-layer-row dark"><div class="mp-thumb" style="background:#252538"></div><span class="mp-name dark" style="color:#50566a">Mockup.png</span><span class="mp-pct dark" style="background:rgba(255,255,255,0.04);color:#50566a">30%</span></div>
+                </div>
+                <div class="mp-slider">
+                  <span class="mp-slider-label dark">不透明度</span>
+                  <div class="mp-slider-track dark"><div class="mp-slider-fill dark"></div><div class="mp-slider-thumb-d"></div></div>
+                </div>
+              </div>
+              <div class="theme-label dark">ダーク</div>
+            </div>
+            <!-- Light -->
+            <div style="flex:1">
+              <div class="mini-popup light">
+                <div class="mp-header light">
+                  <div class="mp-logo">
+                    <svg width="12" height="12" viewBox="0 0 22 22" fill="none"><rect x="1" y="1" width="9" height="9" rx="2" fill="#2d7cff"/><rect x="12" y="1" width="9" height="9" rx="2" fill="#2d7cff"/><rect x="1" y="12" width="9" height="9" rx="2" fill="#2d7cff"/><rect x="12" y="12" width="9" height="9" rx="2" fill="#2d7cff"/></svg>
+                    <span class="mp-logo-text light">DiffPixel</span>
+                  </div>
+                  <svg width="9" height="9" viewBox="0 0 15 15" fill="none"><path d="M13 7.5A5.5 5.5 0 1 1 8.5 2.2 4 4 0 0 0 13 7.5z" fill="#5a6080"/></svg>
+                </div>
+                <div class="mp-status light">
+                  <div class="mp-status-left"><div class="mp-dot-blue"></div><span class="mp-status-text light">接続済み</span></div>
+                  <div style="width:20px;height:10px;background:#0055cc;border-radius:5px;position:relative"><div style="position:absolute;width:7px;height:7px;background:#fff;border-radius:50%;top:1.5px;right:1.5px"></div></div>
+                </div>
+                <div class="mp-body">
+                  <div style="font-size:7px;font-weight:700;letter-spacing:0.05em;color:#9499b0;margin-bottom:4px;padding:0 1px">レイヤー</div>
+                  <div class="mp-layer-row light active"><div class="mp-thumb" style="background:linear-gradient(135deg,#2d7cff,#0055cc)"></div><span class="mp-name light">Design.png</span><span class="mp-pct light">50%</span></div>
+                  <div class="mp-layer-row light"><div class="mp-thumb" style="background:#dfe0ef"></div><span class="mp-name light" style="color:#9499b0">Mockup.png</span><span class="mp-pct light" style="background:rgba(0,0,0,0.04);color:#9499b0">30%</span></div>
+                </div>
+                <div class="mp-slider">
+                  <span class="mp-slider-label light">不透明度</span>
+                  <div class="mp-slider-track light"><div class="mp-slider-fill light"></div><div class="mp-slider-thumb-l"></div></div>
+                </div>
+              </div>
+              <div class="theme-label light">ライト</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Col 2: Language -->
+      <div class="col">
+        <div class="col-header">
+          <div class="col-tag">多言語対応</div>
+          <div class="col-title">日本語 &amp; 英語</div>
+          <div class="col-sub">ブラウザの言語を自動検出</div>
+        </div>
+        <div class="col-body">
+          <div class="lang-row active">
+            <div class="lang-flag">🇯🇵</div>
+            <span class="lang-code">JA</span>
+            <span class="lang-label">日本語</span>
+            <span class="lang-sample">不透明度 · 合成 · レイヤー</span>
+          </div>
+          <div class="lang-row active" style="margin-top:4px">
+            <div class="lang-flag">🇺🇸</div>
+            <span class="lang-code">EN</span>
+            <span class="lang-label">English</span>
+            <span class="lang-sample">Opacity · Blend · Layers</span>
+          </div>
+          <div class="lang-row" style="margin-top:4px; opacity:0.4">
+            <div class="lang-flag" style="font-size:11px;color:#30364a">AUTO</div>
+            <span class="lang-code" style="color:#30364a;font-size:9px">自動</span>
+            <span class="lang-label" style="font-size:10px">ブラウザ言語に従う</span>
+            <span class="lang-sample">デフォルト</span>
+          </div>
+          <div class="lang-note">
+            UI 全体を翻訳 — ラベル・ツールチップ・プレースホルダー・ステータスメッセージがすべて日本語に対応します。
+          </div>
+          <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+            <div style="font-size:9px;color:#50566a;flex-shrink:0">ポップアップ内で切替:</div>
+            <div style="flex:1;height:22px;background:#252538;border:1px solid rgba(255,255,255,0.07);border-radius:4px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;font-size:10px;color:#e8eaf0">
+              <span>言語: JA</span><span style="color:#50566a;font-size:8px">▼</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Col 3: Shortcuts -->
+      <div class="col">
+        <div class="col-header">
+          <div class="col-tag">キーボード</div>
+          <div class="col-title">ショートカット &amp; ジェスチャー</div>
+          <div class="col-sub">マウスなしで精密操作</div>
+        </div>
+        <div class="col-body">
+          <div class="shortcut-list">
+            <div class="shortcut-row highlight">
+              <span class="shortcut-desc">オーバーレイを 1px 移動</span>
+              <div class="shortcut-keys"><span class="kbd">↑</span><span class="kbd">↓</span><span class="kbd">←</span><span class="kbd">→</span></div>
+            </div>
+            <div class="shortcut-row highlight">
+              <span class="shortcut-desc">オーバーレイを 10px 移動</span>
+              <div class="shortcut-keys"><span class="kbd">⇧</span><span class="kbd-plus">+</span><span class="kbd">↑↓←→</span></div>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">ドラッグで位置調整</span>
+              <div class="shortcut-keys"><span class="kbd" style="min-width:60px;font-size:9px">ドラッグ</span></div>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">画像を貼付（ページ上パネル）</span>
+              <div class="shortcut-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">V</span></div>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-desc">画像ファイルをドロップ</span>
+              <div class="shortcut-keys"><span class="kbd" style="min-width:48px;font-size:9px">ドロップ</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-strip">
+    <div class="strip-item"><div class="strip-dot"></div>Manifest V3</div>
+    <div class="strip-item"><div class="strip-dot"></div>データ収集なし</div>
+    <div class="strip-item"><div class="strip-dot"></div>あらゆる Web ページで動作</div>
+    <div class="strip-item"><div class="strip-dot"></div>ドメインごとに自動保存</div>
+  </div>
+</body>
+</html>

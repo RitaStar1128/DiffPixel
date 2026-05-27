@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DiffPixel – Slide 3: Blend Modes</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 1280px; height: 800px; overflow: hidden;
+    background: #0d0d16;
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    color: #e8eaf0;
+    position: relative;
+  }
+
+  .bg-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.025) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .canvas {
+    position: relative; z-index: 1;
+    width: 100%; height: 100%;
+    display: flex; align-items: center;
+  }
+
+  /* ── Left panel ── */
+  .left {
+    width: 460px; padding: 0 0 0 80px; flex-shrink: 0;
+  }
+  .tag {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(0,212,255,0.08); border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 100px; padding: 5px 14px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: #00d4ff; margin-bottom: 26px;
+  }
+  h1 { font-size: 56px; font-weight: 800; line-height: 1.02; letter-spacing: -0.04em; margin-bottom: 20px; }
+  h1 .accent { color: #00d4ff; }
+  h1 .dim { color: #6870a0; }
+  .sub { font-size: 15px; color: #9098b8; line-height: 1.65; max-width: 350px; margin-bottom: 32px; }
+  .sub strong { color: #a8aec0; font-weight: 500; }
+
+  /* Blend mode chips */
+  .blend-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+  .chip {
+    padding: 5px 13px; border-radius: 6px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+    border: 1px solid;
+  }
+  .chip-active {
+    background: rgba(0,212,255,0.12); border-color: rgba(0,212,255,0.4);
+    color: #00d4ff; box-shadow: 0 0 12px rgba(0,212,255,0.15);
+  }
+  .chip-inactive {
+    background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.07);
+    color: #50566a;
+  }
+
+  .tip {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: rgba(0,212,255,0.05); border: 1px solid rgba(0,212,255,0.12);
+    border-radius: 8px; padding: 12px 14px;
+    font-size: 12px; color: #a0a8c0; line-height: 1.5; max-width: 350px;
+  }
+  .tip-icon { flex-shrink: 0; margin-top: 1px; }
+
+  /* ── Right: Blend mode visual ── */
+  .right {
+    flex: 1; height: 100%; display: flex;
+    align-items: center; justify-content: center;
+    position: relative;
+  }
+
+  .blend-visual {
+    position: relative; width: 560px; height: 500px;
+  }
+
+  /* Two overlapping image mockups */
+  .img-a {
+    position: absolute; top: 60px; left: 40px;
+    width: 340px; height: 240px;
+    background: #161622;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px; overflow: hidden;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  }
+  .img-b {
+    position: absolute; top: 160px; left: 130px;
+    width: 340px; height: 240px;
+    background: #161622;
+    border: 1px solid rgba(0,212,255,0.15);
+    border-radius: 8px; overflow: hidden;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.5), 0 0 30px rgba(0,212,255,0.08);
+  }
+
+  /* "Design A" content */
+  .design-nav { height: 32px; background: #1e1e2e; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; padding: 0 14px; gap: 8px; }
+  .design-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .design-body { padding: 16px; }
+  .design-hero { width: 100%; height: 36px; background: rgba(255,255,255,0.06); border-radius: 5px; margin-bottom: 10px; }
+  .design-row { display: flex; gap: 8px; }
+  .design-card { flex: 1; height: 64px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 4px; }
+
+  /* "Design B" content (slightly different layout) */
+  .design-b-nav { height: 32px; background: #1a2228; border-bottom: 1px solid rgba(0,212,255,0.08); display: flex; align-items: center; padding: 0 14px; gap: 8px; }
+  .design-b-body { padding: 16px; }
+  .design-b-hero { width: 80%; height: 36px; background: rgba(0,212,255,0.08); border-radius: 5px; margin-bottom: 10px; }
+  .design-b-row { display: flex; gap: 8px; }
+  .design-b-card { flex: 1; height: 64px; background: rgba(0,212,255,0.04); border: 1px solid rgba(0,212,255,0.08); border-radius: 4px; }
+
+  /* Difference overlay — the glowing diff area */
+  .diff-overlay {
+    position: absolute;
+    top: 160px; left: 130px;
+    width: 340px; height: 240px;
+    border-radius: 8px;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 10;
+  }
+  .diff-spot {
+    position: absolute;
+    border-radius: 3px;
+  }
+
+  /* Blend mode select panel */
+  .blend-panel {
+    position: absolute;
+    right: 0; top: 50%; transform: translateY(-50%);
+    width: 148px;
+    background: #0d0d16;
+    border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 8px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 0 24px rgba(0,212,255,0.08);
+    overflow: hidden;
+    font-size: 10px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  }
+  .bp-header {
+    padding: 7px 11px; background: #161622;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 8.5px; font-weight: 700; letter-spacing: 0.09em;
+    color: #50566a; text-transform: uppercase;
+  }
+  .bp-item {
+    padding: 6px 11px; cursor: pointer;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    font-size: 10px;
+  }
+  .bp-item:last-child { border-bottom: none; }
+  .bp-item.active {
+    background: rgba(0,212,255,0.08);
+    color: #00d4ff; font-weight: 600;
+    border-left: 2px solid #00d4ff; padding-left: 9px;
+  }
+  .bp-item.inactive { color: #50566a; }
+
+  /* Labels */
+  .img-label {
+    position: absolute;
+    background: rgba(22,22,34,0.9);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 5px; padding: 4px 10px;
+    font-size: 10px; font-weight: 600; color: #8890a4;
+  }
+
+  /* Diff count badge */
+  .diff-badge {
+    position: absolute;
+    bottom: 30px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,212,255,0.12);
+    border: 1px solid rgba(0,212,255,0.3);
+    border-radius: 20px; padding: 6px 18px;
+    font-size: 12px; font-weight: 700; color: #00d4ff;
+    white-space: nowrap;
+    box-shadow: 0 0 20px rgba(0,212,255,0.12);
+  }
+</style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+
+  <div class="canvas">
+    <!-- Left -->
+    <div class="left">
+      <div class="tag">Blend Modes</div>
+      <h1>Find every<br><span class="accent">difference.</span><br><span class="dim">Instantly.</span></h1>
+      <p class="sub">
+        Use <strong>Difference</strong> or <strong>Exclusion</strong> blend modes
+        to visually reveal every mismatch between your design
+        and the live implementation — pixel by pixel.
+      </p>
+
+      <div class="blend-chips">
+        <span class="chip chip-inactive">Normal</span>
+        <span class="chip chip-active">Difference</span>
+        <span class="chip chip-inactive">Multiply</span>
+        <span class="chip chip-inactive">Screen</span>
+        <span class="chip chip-inactive">Overlay</span>
+        <span class="chip chip-active">Exclusion</span>
+        <span class="chip chip-inactive">Hard Light</span>
+      </div>
+
+      <div class="tip">
+        <div class="tip-icon">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <circle cx="7" cy="7" r="6" stroke="#00d4ff" stroke-width="1.3"/>
+            <path d="M7 6v4" stroke="#00d4ff" stroke-width="1.3" stroke-linecap="round"/>
+            <circle cx="7" cy="4" r="0.8" fill="#00d4ff"/>
+          </svg>
+        </div>
+        <span><strong style="color:#c8ccd8">Pro tip:</strong> Set blend mode to <strong style="color:#00d4ff">Difference</strong> and opacity to 100% — identical pixels turn black, mismatches appear as coloured values.</span>
+      </div>
+    </div>
+
+    <!-- Right: Blend visual -->
+    <div class="right">
+      <div class="blend-visual">
+        <!-- Image A (design) -->
+        <div class="img-a">
+          <div class="design-nav">
+            <div class="design-dot" style="background:#ff5f57"></div>
+            <div class="design-dot" style="background:#ffbd2e"></div>
+            <div class="design-dot" style="background:#28c840"></div>
+          </div>
+          <div class="design-body">
+            <div class="design-hero"></div>
+            <div class="design-row">
+              <div class="design-card"></div>
+              <div class="design-card"></div>
+              <div class="design-card"></div>
+            </div>
+          </div>
+        </div>
+        <div class="img-label" style="top:58px; left:38px">Design file</div>
+
+        <!-- Image B (live page, slightly offset) -->
+        <div class="img-b">
+          <div class="design-b-nav">
+            <div class="design-dot" style="background:#ff5f57"></div>
+            <div class="design-dot" style="background:#ffbd2e"></div>
+            <div class="design-dot" style="background:#28c840"></div>
+          </div>
+          <div class="design-b-body">
+            <div class="design-b-hero"></div>
+            <div class="design-b-row">
+              <div class="design-b-card"></div>
+              <div class="design-b-card" style="flex:1.4"></div>
+              <div class="design-b-card"></div>
+            </div>
+          </div>
+        </div>
+        <div class="img-label" style="top:162px; left:134px; border-color:rgba(0,212,255,0.15); color:#00d4ff">Live page</div>
+
+        <!-- Diff overlay glow spots -->
+        <div class="diff-overlay">
+          <!-- glow areas where designs differ -->
+          <div class="diff-spot" style="top:14px; left:0; right:0; height:2px; background:linear-gradient(90deg, transparent, rgba(0,212,255,0.6) 20%, rgba(0,212,255,0.8) 50%, rgba(0,212,255,0.6) 80%, transparent); box-shadow: 0 0 8px rgba(0,212,255,0.5);"></div>
+          <div class="diff-spot" style="top:30px; left:10px; width:120px; height:18px; background:rgba(0,212,255,0.22); box-shadow:0 0 12px rgba(0,212,255,0.3);"></div>
+          <div class="diff-spot" style="top:30px; right:10px; width:60px; height:10px; background:rgba(0,212,255,0.15);"></div>
+          <div class="diff-spot" style="top:56px; left:60px; width:80px; height:48px; background:rgba(0,212,255,0.18); box-shadow:0 0 16px rgba(0,212,255,0.25);"></div>
+          <div class="diff-spot" style="top:56px; right:20px; width:40px; height:48px; background:rgba(0,212,255,0.12);"></div>
+          <div class="diff-spot" style="top:116px; left:180px; width:60px; height:6px; background:rgba(0,212,255,0.35); box-shadow:0 0 10px rgba(0,212,255,0.4);"></div>
+          <div class="diff-spot" style="bottom:20px; left:20px; width:100px; height:16px; background:rgba(0,212,255,0.2);"></div>
+          <!-- Center glow -->
+          <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:120px; height:120px; background:radial-gradient(ellipse, rgba(0,212,255,0.12) 0%, transparent 70%); pointer-events:none;"></div>
+        </div>
+
+        <!-- Blend mode selector -->
+        <div class="blend-panel">
+          <div class="bp-header">BLEND MODE</div>
+          <div class="bp-item inactive">Normal</div>
+          <div class="bp-item active">Difference</div>
+          <div class="bp-item inactive">Multiply</div>
+          <div class="bp-item inactive">Screen</div>
+          <div class="bp-item inactive">Overlay</div>
+          <div class="bp-item inactive">Hard Light</div>
+          <div class="bp-item inactive">Exclusion</div>
+        </div>
+
+        <div class="diff-badge">
+          ✦ Difference blend mode active
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

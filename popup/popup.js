@@ -44,10 +44,9 @@ const SCALE_MAX = 20;
 const SCALE_DECIMALS = 4;
 const SCALE_DISPLAY_DECIMALS = 2;
 const SCALE_PRECISION = 10 ** SCALE_DECIMALS;
-const SCALE_STEP = 0.001;
+const SCALE_STEP = 0.1;
 const SCALE_STEP_COARSE = 0.01;
-const SCALE_STEP_FINE = 0.0001;
-const SCALE_KEY_STEP = 0.1;
+const SCALE_STEP_FINE = 0.001;
 
 function normalizeScale(value, fallback = 1) {
   const n = Number(value);
@@ -82,6 +81,10 @@ function applyI18n() {
     const msg = t(el.dataset.i18nTitle);
     if (msg) el.title = msg;
   });
+  document.querySelectorAll('[data-i18n-aria-label]').forEach(el => {
+    const msg = t(el.dataset.i18nAriaLabel);
+    if (msg) el.setAttribute('aria-label', msg);
+  });
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
     const msg = t(el.dataset.i18nPlaceholder);
     if (msg) el.placeholder = msg;
@@ -105,12 +108,34 @@ function preferredTheme() {
   return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 
+function themeIconSVG(theme) {
+  if (theme === 'light') {
+    return `<svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+      <circle cx="7.5" cy="7.5" r="3" stroke="currentColor" stroke-width="1.4"/>
+      <line x1="7.5" y1="1" x2="7.5" y2="2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="7.5" y1="12.5" x2="7.5" y2="14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="1" y1="7.5" x2="2.5" y2="7.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="12.5" y1="7.5" x2="14" y2="7.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="3.2" y1="3.2" x2="4.2" y2="4.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="10.8" y1="10.8" x2="11.8" y2="11.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="11.8" y1="3.2" x2="10.8" y2="4.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="4.2" y1="10.8" x2="3.2" y2="11.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+    </svg>`;
+  }
+
+  return `<svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+    <path d="M11.9 9.2A5 5 0 0 1 5.8 3.1a5.2 5.2 0 1 0 6.1 6.1Z" stroke="currentColor" stroke-width="1.45" stroke-linejoin="round"/>
+    <path d="M10.5 2.1l.35 1.05 1.05.35-1.05.35-.35 1.05-.35-1.05-1.05-.35 1.05-.35.35-1.05Z" fill="currentColor"/>
+  </svg>`;
+}
+
 function updateThemeButton() {
   if (!themeBtn) return;
   const label = t(currentTheme === 'light' ? 'themeDark' : 'themeLight');
   themeBtn.setAttribute('aria-label', label);
-  themeBtn.setAttribute('aria-pressed', String(currentTheme === 'light'));
+  themeBtn.setAttribute('aria-pressed', 'false');
   themeBtn.title = label;
+  themeBtn.innerHTML = themeIconSVG(currentTheme);
 }
 
 function applyTheme(theme) {
@@ -172,6 +197,7 @@ const statusText      = $('statusText');
 const layerList       = $('layerList');
 const emptyState      = $('emptyState');
 const controlsSection = $('controlsSection');
+const addLayerBtn     = $('addLayerBtn');
 const fileInput       = $('fileInput');
 const dropZone        = $('dropZone');
 const persistRow      = $('persistRow');
@@ -185,6 +211,7 @@ const xInput          = $('xInput');
 const yInput          = $('yInput');
 const scaleInput      = $('scaleInput');
 const blendSelect     = $('blendSelect');
+const blendRow        = $('blendRow');
 const invertBtn       = $('invertBtn');
 const lockBtn         = $('lockBtn');
 const removeLayerBtn  = $('removeLayerBtn');
@@ -195,6 +222,16 @@ const gridBtn         = $('gridBtn');
 const gridSizeWrap    = $('gridSizeWrap');
 const gridSizeInput   = $('gridSizeInput');
 const langSelect      = $('langSelect');
+
+const arrowKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+const blurOnArrow = el => {
+  el?.addEventListener('keydown', e => {
+    if (!arrowKeys.includes(e.key)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    el.blur();
+  });
+};
 const themeBtn        = $('themeBtn');
 
 /* ── Messaging ──────────────────────────────── */
@@ -329,17 +366,27 @@ function renderAll() {
 function renderLayerList() {
   layerList.querySelectorAll('.layer-item').forEach(el => el.remove());
   emptyState.style.display = appState.layers.length === 0 ? '' : 'none';
+  emptyState.setAttribute('aria-hidden', String(appState.layers.length !== 0));
 
   appState.layers.forEach(layer => {
     const item = document.createElement('div');
     item.className = 'layer-item' + (layer.id === appState.activeLayerId ? ' active' : '');
     item.dataset.id = layer.id;
+    item.tabIndex = 0;
+    item.setAttribute('role', 'option');
+    item.setAttribute('aria-selected', String(layer.id === appState.activeLayerId));
+    item.setAttribute(
+      'aria-label',
+      `${layer.name}, ${Math.round(layer.opacity * 100)}%, ${layer.x}px ${layer.y}px, x${formatScale(layer.scale)}`
+    );
 
     const thumb = document.createElement('div');
     thumb.className = 'layer-thumb';
     if (layer.imageData) {
       const img = document.createElement('img');
       img.src = layer.imageData;
+      img.alt = '';
+      img.setAttribute('aria-hidden', 'true');
       thumb.appendChild(img);
     }
 
@@ -358,11 +405,14 @@ function renderLayerList() {
     info.appendChild(metaEl);
 
     const visBtn = document.createElement('button');
+    visBtn.type = 'button';
     visBtn.className = 'layer-vis-btn' + (!layer.visible ? ' hidden' : '');
     visBtn.title = t(layer.visible ? 'visHide' : 'visShow');
+    visBtn.setAttribute('aria-label', visBtn.title);
+    visBtn.setAttribute('aria-pressed', String(!!layer.visible));
     visBtn.innerHTML = layer.visible
-      ? `<svg width="13" height="10" viewBox="0 0 13 10"><ellipse cx="6.5" cy="5" rx="5.5" ry="4" stroke="currentColor" stroke-width="1.3" fill="none"/><circle cx="6.5" cy="5" r="1.8" fill="currentColor"/></svg>`
-      : `<svg width="13" height="11" viewBox="0 0 13 11"><line x1="1" y1="1" x2="12" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M3 7.5A5.5 4 0 0 0 10 7.5" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>`;
+      ? `<svg aria-hidden="true" width="13" height="10" viewBox="0 0 13 10"><ellipse cx="6.5" cy="5" rx="5.5" ry="4" stroke="currentColor" stroke-width="1.3" fill="none"/><circle cx="6.5" cy="5" r="1.8" fill="currentColor"/></svg>`
+      : `<svg aria-hidden="true" width="13" height="11" viewBox="0 0 13 11"><line x1="1" y1="1" x2="12" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M3 7.5A5.5 4 0 0 0 10 7.5" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>`;
 
     visBtn.addEventListener('click', e => { e.stopPropagation(); toggleLayerVisibility(layer.id); });
 
@@ -370,13 +420,22 @@ function renderLayerList() {
     item.appendChild(info);
     item.appendChild(visBtn);
     item.addEventListener('click', () => setActiveLayer(layer.id));
+    item.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      setActiveLayer(layer.id);
+    });
     layerList.appendChild(item);
   });
 }
 
 function renderControls() {
   const layer = activeLayer();
-  if (!layer) { controlsSection.style.display = 'none'; return; }
+  if (!layer) {
+    controlsSection.style.display = 'none';
+    blendRow?.classList.remove('is-active');
+    return;
+  }
 
   controlsSection.style.display = 'block';
   layerNameInput.value = layer.name;
@@ -386,12 +445,16 @@ function renderControls() {
   yInput.value         = layer.y;
   if (scaleInput !== document.activeElement) scaleInput.value = formatScale(layer.scale);
   blendSelect.value    = layer.blendMode;
+  blendRow?.classList.toggle('is-active', layer.blendMode !== 'normal');
   invertBtn.classList.toggle('active', !!layer.invert);
+  invertBtn.setAttribute('aria-pressed', String(!!layer.invert));
   lockBtn.classList.toggle('active',   !!layer.locked);
+  lockBtn.setAttribute('aria-pressed', String(!!layer.locked));
 }
 
 function renderGrid() {
   gridBtn.classList.toggle('active', appState.grid.enabled);
+  gridBtn.setAttribute('aria-pressed', String(!!appState.grid.enabled));
   gridSizeWrap.style.display = appState.grid.enabled ? 'flex' : 'none';
   gridSizeInput.value = appState.grid.size;
 }
@@ -473,10 +536,10 @@ async function removeActiveLayer() {
   await saveSettings();
 }
 
-/* Reset position to 0,0 */
+/* Reset position and scale */
 async function resetPosition() {
-  xInput.value = 0; yInput.value = 0;
-  await updateActiveLayer({ x: 0, y: 0 });
+  xInput.value = 0; yInput.value = 0; scaleInput.value = formatScale(1);
+  await updateActiveLayer({ x: 0, y: 0, scale: 1 });
   renderControls();
 }
 
@@ -559,17 +622,10 @@ scaleInput.addEventListener('input', () => {
 });
 
 scaleInput.addEventListener('keydown', e => {
-  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-  const layer = activeLayer();
-  if (!layer) return;
+  if (!arrowKeys.includes(e.key)) return;
   e.preventDefault();
-  const dir = e.key === 'ArrowUp' ? 1 : -1;
-  const typed = Number(scaleInput.value);
-  const base = Number.isFinite(typed) ? typed : layer.scale;
-  layer.scale = normalizeScale(base + dir * SCALE_KEY_STEP, layer.scale);
-  scaleInput.value = formatScale(layer.scale);
-  updateActiveLayer({ scale: layer.scale });
-  renderLayerList();
+  e.stopPropagation();
+  scaleInput.blur();
 });
 
 scaleInput.addEventListener('blur', () => {
@@ -602,13 +658,27 @@ document.querySelectorAll('.step-btn').forEach(btn => {
   });
 });
 
-blendSelect.addEventListener('change', () => updateActiveLayer({ blendMode: blendSelect.value }));
+blendSelect.addEventListener('change', () => {
+  blendRow?.classList.toggle('is-active', blendSelect.value !== 'normal');
+  updateActiveLayer({ blendMode: blendSelect.value });
+  blendSelect.blur();
+});
+
+blendSelect.addEventListener('keydown', e => {
+  if (!arrowKeys.includes(e.key)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  blendSelect.blur();
+});
+
+[opacitySlider, opacityInput, xInput, yInput].forEach(blurOnArrow);
 
 invertBtn.addEventListener('click', () => {
   const layer = activeLayer();
   if (!layer) return;
   layer.invert = !layer.invert;
   invertBtn.classList.toggle('active', layer.invert);
+  invertBtn.setAttribute('aria-pressed', String(!!layer.invert));
   updateActiveLayer({ invert: layer.invert });
 });
 
@@ -617,6 +687,7 @@ lockBtn.addEventListener('click', () => {
   if (!layer) return;
   layer.locked = !layer.locked;
   lockBtn.classList.toggle('active', layer.locked);
+  lockBtn.setAttribute('aria-pressed', String(!!layer.locked));
   updateActiveLayer({ locked: layer.locked });
 });
 
@@ -639,6 +710,12 @@ themeBtn.addEventListener('click', toggleTheme);
 langSelect?.addEventListener('change', () => setLanguage(langSelect.value));
 
 /* File input (multiple) */
+addLayerBtn?.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  e.preventDefault();
+  fileInput.click();
+});
+
 fileInput.addEventListener('change', () => {
   [...fileInput.files].filter(f => f.type.startsWith('image/')).forEach(addImageLayer);
   fileInput.value = '';

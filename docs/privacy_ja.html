@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>プライバシーポリシー – DiffPixel</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0d0d16;
+      --surface: #161622;
+      --border:  rgba(255,255,255,0.07);
+      --accent:  #00d4ff;
+      --text:    #e8eaf0;
+      --muted:   #9098b8;
+      --dim:     #50566a;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Meiryo', -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.8;
+      min-height: 100vh;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 28px 0;
+    }
+
+    .wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    .logo-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px;
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+    .logo-icon span {
+      background: var(--accent);
+      border-radius: 3px;
+      display: block;
+    }
+
+    .logo-name {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+    .logo-name em {
+      color: var(--accent);
+      font-style: normal;
+    }
+
+    .lang-switch {
+      display: inline-flex;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 48px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .lang-switch button {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 6px 16px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .lang-switch button.active {
+      background: rgba(0,212,255,0.1);
+      color: var(--accent);
+    }
+
+    main {
+      padding: 60px 0 100px;
+    }
+
+    .page-title {
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .page-meta {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 40px;
+    }
+
+    .highlight {
+      background: rgba(0,212,255,0.06);
+      border: 1px solid rgba(0,212,255,0.14);
+      border-radius: 8px;
+      padding: 16px 20px;
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.75;
+      margin-bottom: 48px;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0 0 44px;
+    }
+
+    section {
+      margin-bottom: 44px;
+    }
+
+    h2 {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 14px;
+    }
+
+    p {
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    p:last-child { margin-bottom: 0; }
+
+    ul {
+      color: var(--muted);
+      padding-left: 1.4em;
+      margin-bottom: 12px;
+    }
+    li { margin-bottom: 6px; }
+
+    strong { color: var(--text); font-weight: 600; }
+
+    code {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 3px;
+      padding: 1px 6px;
+      font-size: 13px;
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      color: var(--accent);
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 28px 0;
+    }
+    footer p {
+      font-size: 12px;
+      color: var(--dim);
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="logo-row">
+      <div class="logo-icon">
+        <span></span><span></span>
+        <span></span><span></span>
+      </div>
+      <span class="logo-name">Diff<em>Pixel</em></span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+
+    <div class="lang-switch">
+      <button onclick="location.href='privacy.html'">English</button>
+      <button class="active">日本語</button>
+    </div>
+
+    <h1 class="page-title">プライバシーポリシー</h1>
+    <p class="page-meta">施行日：2025年5月27日　&nbsp;·&nbsp;　DiffPixel Chrome 拡張機能</p>
+
+    <div class="highlight">
+      DiffPixel は個人データを収集・送信・共有しません。拡張機能が作成するすべてのデータはお使いのデバイス上にのみ保存されます。
+    </div>
+
+    <hr />
+
+    <section>
+      <h2>1. 概要</h2>
+      <p>DiffPixel（以下「本拡張機能」）は、デザイナーおよびデベロッパー向けのピクセルパーフェクトなオーバーレイ比較ツールです。参照画像をブラウザタブ上に半透明のオーバーレイとして表示し、デザインと実際のウェブページを視覚的に比較するために使用します。</p>
+      <p>本ポリシーでは、本拡張機能が扱うデータとその目的について説明します。</p>
+    </section>
+
+    <section>
+      <h2>2. 収集しないデータ</h2>
+      <p>本拡張機能は以下のデータを収集・保存・送信・共有しません：</p>
+      <ul>
+        <li>個人情報（氏名・メールアドレス・IPアドレスなど）</li>
+        <li>閲覧履歴やアクセスした URL（設定のスコープ限定に必要な瞬時の参照を除く）</li>
+        <li>キーストローク・クリック・マウス操作</li>
+        <li>閲覧したウェブページのコンテンツ</li>
+        <li>オーバーレイとして読み込んだ画像の内容</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>3. ローカルストレージ</h2>
+      <p>本拡張機能は <strong>chrome.storage.local</strong> のみを使用し、以下の設定をお使いのデバイス上にのみ保存します：</p>
+      <ul>
+        <li><strong>UI設定</strong>　— テーマ（ダーク／ライト）および表示言語（EN／JA）</li>
+        <li><strong>ドメインごとのオーバーレイ設定</strong>　— 不透明度・位置・スケール・合成モード・レイヤー構成</li>
+        <li><strong>画像データ</strong>　— 読み込んだ参照画像は Base64 形式でローカルに保存され、セッションをまたいで維持されます</li>
+      </ul>
+      <p>これらのデータはすべてブラウザのローカルストレージにのみ存在し、いかなるサーバーにも送信されません。</p>
+    </section>
+
+    <section>
+      <h2>4. 権限の説明</h2>
+      <ul>
+        <li><strong>activeTab</strong>　— オーバーレイを注入するために現在表示中のタブを特定するため</li>
+        <li><strong>scripting</strong>　— アクティブなタブにオーバーレイ UI を注入するため</li>
+        <li><strong>storage</strong>　— 設定をローカルに読み書きするため</li>
+        <li><strong>unlimitedStorage</strong>　— 大容量または複数の参照画像を保存するためにデフォルトのストレージ上限を超える容量を確保するため</li>
+      </ul>
+      <p>いずれの権限も、閲覧アクティビティやページコンテンツへのアクセス・取得・送信には使用しません。</p>
+    </section>
+
+    <section>
+      <h2>5. 第三者への提供</h2>
+      <p>本拡張機能はサードパーティの分析・広告・データサービスと連携しません。ユーザーデータを第三者へ販売・転送・共有することはありません。</p>
+    </section>
+
+    <section>
+      <h2>6. リモートコード</h2>
+      <p>本拡張機能はリモートコードを読み込み・実行しません。すべてのスクリプトとスタイルは拡張機能パッケージ内にバンドルされており、厳格なコンテンツセキュリティポリシー（<code>script-src 'self'</code>）によって管理されています。</p>
+    </section>
+
+    <section>
+      <h2>7. 子どものプライバシー</h2>
+      <p>本拡張機能は13歳未満の子どもを対象としていません。子どものデータを意図的に収集することはありません。</p>
+    </section>
+
+    <section>
+      <h2>8. ポリシーの変更</h2>
+      <p>本ポリシーを改訂した場合、改訂後の版を同 URL で公開し、施行日を更新します。変更後も引き続き本拡張機能を使用することで、改訂されたポリシーに同意したものとみなします。</p>
+    </section>
+
+    <section>
+      <h2>9. お問い合わせ</h2>
+      <p>ご質問・ご不明点は <a href="https://github.com/RitaStar1128/DiffPixel" target="_blank" rel="noopener">GitHub リポジトリ</a> の Issue よりお問い合わせください。</p>
+    </section>
+
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>© 2025 DiffPixel &nbsp;·&nbsp; <a href="https://github.com/RitaStar1128/DiffPixel" target="_blank" rel="noopener">GitHub</a></p>
+  </div>
+</footer>
+
+</body>
+</html>
